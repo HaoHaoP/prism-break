@@ -247,10 +247,10 @@ function cellOn(pattern, r, c, rows, cols) {
 }
 
 function buildLevel(level) {
-  const cols = 9, cw = 78, ch = 27, gap = 6;
+  const cols = 9, cw = 78, ch = 32, gap = 7;
   const totalW = cols * cw + (cols - 1) * gap;
   const startX = (W - totalW) / 2;
-  const startY = 88;
+  const startY = 100;
   const rows = clamp(4 + Math.floor((level - 1) / 2), 4, 7);
   const pattern = (level - 1) % 5;
   const bricks = [];
@@ -887,6 +887,16 @@ function drawBricks() {
     ctx.lineWidth = b.flash > 0 ? 2.6 : 1.4;
     ctx.globalAlpha = b.breakable ? 0.65 + (b.flash * 0.35) : 0.5;
     roundedRect(ctx, b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 5);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // top bevel
+    ctx.globalAlpha = b.breakable ? 0.5 : 0.25;
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(b.x + 5, b.y + 1.5);
+    ctx.lineTo(b.x + b.w - 5, b.y + 1.5);
     ctx.stroke();
     ctx.globalAlpha = 1;
 
