@@ -459,6 +459,9 @@ const G = {
   fusionCD: 0,
   fusionBeam: null,
   fuseRect: null,
+  odRect: null,
+  pauseRect: null,
+  muteRect: null,
   runReso: 0,
   runOdKills: 0,
   copied: 0,
@@ -1171,6 +1174,21 @@ function onPointerDown(clientX, clientY) {
   }
   if (G.portraitHint) { G.portraitDismissed = true; G.portraitHint = false; return; }
   if (G.state === 'playing') {
+    const pr = G.pauseRect;
+    if (pr && p.x >= pr.x && p.x <= pr.x + pr.w && p.y >= pr.y && p.y <= pr.y + pr.h) {
+      G.state = 'paused';
+      return;
+    }
+    const mr = G.muteRect;
+    if (mr && p.x >= mr.x && p.x <= mr.x + mr.w && p.y >= mr.y && p.y <= mr.y + mr.h) {
+      Sound.toggle();
+      return;
+    }
+    const or2 = G.odRect;
+    if (or2 && p.x >= or2.x && p.x <= or2.x + or2.w && p.y >= or2.y && p.y <= or2.y + or2.h) {
+      tryOverdrive();
+      return;
+    }
     const fr = G.fuseRect;
     if (fr && p.x >= fr.x && p.x <= fr.x + fr.w && p.y >= fr.y && p.y <= fr.y + fr.h) {
       tryFusion();
@@ -2039,6 +2057,48 @@ function drawHud() {
     }
   }
 
+  // ---- pause / mute chips (touch playable) ----
+  const chW = 34, chH = 24;
+  const pauseX = W - 20 - chW, muteX = pauseX - chW - 8, chY = 58;
+  G.pauseRect = { x: pauseX, y: chY, w: chW, h: chH };
+  G.muteRect = { x: muteX, y: chY, w: chW, h: chH };
+  for (const [rx, kind] of [[pauseX, 'pause'], [muteX, 'mute']]) {
+    ctx.strokeStyle = 'rgba(150,170,200,0.35)';
+    ctx.lineWidth = 1.2;
+    roundedRect(ctx, rx, chY, chW, chH, 7);
+    ctx.stroke();
+  }
+  // pause glyph
+  ctx.fillStyle = 'rgba(200,215,235,0.85)';
+  ctx.fillRect(pauseX + 12, chY + 7, 4, 10);
+  ctx.fillRect(pauseX + 19, chY + 7, 4, 10);
+  // speaker glyph
+  ctx.beginPath();
+  ctx.moveTo(muteX + 10, chY + 9);
+  ctx.lineTo(muteX + 14, chY + 9);
+  ctx.lineTo(muteX + 19, chY + 5);
+  ctx.lineTo(muteX + 19, chY + 19);
+  ctx.lineTo(muteX + 14, chY + 15);
+  ctx.lineTo(muteX + 10, chY + 15);
+  ctx.closePath();
+  ctx.fill();
+  if (Sound.on) {
+    ctx.strokeStyle = 'rgba(200,215,235,0.85)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(muteX + 20, chY + 12, 5, -0.9, 0.9);
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = '#ff4f6d';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(muteX + 9, chY + 5);
+    ctx.lineTo(muteX + 24, chY + 19);
+    ctx.moveTo(muteX + 24, chY + 5);
+    ctx.lineTo(muteX + 9, chY + 19);
+    ctx.stroke();
+  }
+
   // ---- fusion slot (next to the light swatches) ----
   const fx = 172, fy = H - 24, fw = 96, fh = 18;
   G.fuseRect = { x: fx, y: fy, w: fw, h: fh };
@@ -2059,6 +2119,7 @@ function drawHud() {
 
   // ---- overdrive meter (bottom-centre) ----
   const mw = 250, mx = W / 2 - mw / 2, my = H - 26, mh = 9;
+  G.odRect = { x: mx, y: my - 14, w: mw, h: mh + 24 };
   ctx.fillStyle = 'rgba(255,255,255,0.09)';
   roundedRect(ctx, mx, my, mw, mh, 4.5);
   ctx.fill();

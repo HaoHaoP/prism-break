@@ -68,7 +68,15 @@
 
 ## 装到手机
 
-用手机浏览器打开站点，菜单里可以「添加到主屏幕」—— 带 manifest 与图标，启动后是全屏横屏，没有地址栏。触摸是**相对拖动**：手指在屏幕任意位置滑动即可，不会挡住挡板。
+用手机浏览器打开站点，菜单里可以「添加到主屏幕」—— 带 manifest 与图标，启动后是全屏横屏，没有地址栏。
+
+手机上没有键盘也能完整玩：
+
+- **挡板**：相对拖动，手指在屏幕任意位置滑动即可，不会挡住挡板
+- **发射**：点画面任意处
+- **换色 / 合光**：点左下角三个色块和「合光」槽
+- **超载**：直接点底部那条能量条
+- **暂停 / 静音**：右上角两个小按钮
 
 ## 本地运行
 
@@ -128,7 +136,13 @@ The DAILY RUN button on the title screen seeds the RNG with today's date, so eve
 
 ## On a phone
 
-Open the site on a mobile browser and add it to the home screen: the web app manifest plus icons give a full-screen landscape launch with no address bar. Touch control is **relative dragging** — slide anywhere on the screen and the paddle follows, so your thumb never covers it.
+Open the site on a mobile browser and add it to the home screen: the web app manifest plus icons give a full-screen landscape launch with no address bar. Everything is reachable by thumb:
+
+- **Paddle**: relative dragging — slide anywhere on screen, your thumb never covers it
+- **Launch**: tap anywhere
+- **Tone / fusion**: tap the three swatches and the fusion slot, bottom-left
+- **Overdrive**: tap the meter itself
+- **Pause / mute**: two chips in the top-right
 
 ## Controls
 
