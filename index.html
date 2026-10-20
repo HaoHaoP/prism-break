@@ -2203,6 +2203,40 @@ function drawBackground() {
   ctx.fillRect(0, 0, W, H);
 }
 
+function drawTwinLinks() {
+  if (!G.bricks) return;
+  const drawn = {};
+  for (const b of G.bricks) {
+    if (!b.alive || !b.twinId || drawn[b.twinId]) continue;
+    let partner = null;
+    for (const o of G.bricks) {
+      if (o !== b && o.alive && o.twinId === b.twinId) { partner = o; break; }
+    }
+    if (!partner) continue;
+    drawn[b.twinId] = 1;
+    const x1 = b.x + b.w / 2;
+    const y1 = b.y + b.h / 2;
+    const x2 = partner.x + partner.w / 2;
+    const y2 = partner.y + partner.h / 2;
+    const hot = (b.sealedT || 0) > 0 || (partner.sealedT || 0) > 0;
+    ctx.save();
+    ctx.setLineDash(hot ? [7, 5] : [3, 7]);
+    ctx.lineDashOffset = hot ? -G.time * 26 : 0;
+    ctx.strokeStyle = hot ? 'rgba(255,209,102,0.9)' : 'rgba(125,255,176,0.4)';
+    ctx.lineWidth = hot ? 2.4 : 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = hot ? 'rgba(255,209,102,0.95)' : 'rgba(125,255,176,0.55)';
+    ctx.beginPath();
+    ctx.arc((x1 + x2) / 2, (y1 + y2) / 2, hot ? 3.4 : 2.2, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
 function drawBricks() {
   for (const b of G.bricks) {
     if (!b.alive) continue;
@@ -3458,6 +3492,7 @@ function render() {
   ctx.translate(sx, sy);
   drawBackground();
   if (G.state !== 'menu') {
+    drawTwinLinks();
     drawBricks();
     drawBolts();
     drawFusionBeam();
