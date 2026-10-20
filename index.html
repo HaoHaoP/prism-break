@@ -411,6 +411,7 @@ const I18N = {
  twinHalf: '孪生 1/2 —— 快打另一块', twinDone: '孪生破碎',
  coreMode: '核心', ringWord: (n) => '第 ' + n + ' 环', coreClear: '环已清', core: '核心',
  pulse: '脉冲', chargeWord: '充能', stackedFloor: '双层规则', bossWord: '吞噬者', bossWeak: '打弱点', quitRun: '退出本局',
+ installApp: '安装到桌面',
  bossFlawless: '无伤通环', achWord: '成就', coreStatsWord: '接球', streakWord: '连击', fusionReady: '合光 F', fusionCool: '合光',
     rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
     odWaste: (n) => '只剩 ' + n + ' 块砖，超载留着', odCarry: '清层返还 30% 充能',
@@ -446,6 +447,7 @@ const I18N = {
  twinHalf: 'TWIN 1/2 — break its pair', twinDone: 'TWIN BROKEN',
  coreMode: 'CORE', ringWord: (n) => 'RING ' + n, coreClear: 'RING CLEAR', core: 'CORE',
  pulse: 'PULSE', chargeWord: 'CHARGE', stackedFloor: 'TWO MODIFIERS', bossWord: 'DEVOURER', bossWeak: 'HIT THE GLOWING NODE', quitRun: 'QUIT RUN',
+ installApp: 'INSTALL APP',
  bossFlawless: 'FLAWLESS RING', achWord: 'ACH', coreStatsWord: 'CATCHES', streakWord: 'STREAK', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
     odWaste: (n) => n + ' bricks left — save it', odCarry: 'floor clear refunds 30%',
@@ -610,6 +612,7 @@ const G = {
   toneRects: [],
   langRect: null,
   dailyRect: null,
+  installRect: null,
   blitzRect: null,
   coreRect: null,
   stats: { runs: 0, bricks: 0, overdrives: 0, wins: 0, burstBest: 0, comboBest: 0, depthBest: 0,
@@ -1408,6 +1411,13 @@ function onPointerDown(clientX, clientY) {
     const br2 = G.blitzRect;
     if (br2 && p.x >= br2.x && p.x <= br2.x + br2.w && p.y >= br2.y && p.y <= br2.y + br2.h) {
       startBlitz();
+      return;
+    }
+    if (pointInRect(p, G.installRect) && prismInstallPrompt) {
+      prismInstallPrompt.prompt();
+      const pr = prismInstallPrompt;
+      prismInstallPrompt = null;
+      if (pr.userChoice) pr.userChoice.catch(() => {});
       return;
     }
     const cr3 = G.coreRect;
@@ -2905,6 +2915,27 @@ function drawMenu() {
   G.blitzRect = { x: bzx, y: lby, w: lbw, h: lbh };
   G.coreRect = { x: cxx, y: lby, w: lbw, h: lbh };
   G.langRect = { x: lgx, y: lby, w: lbw, h: lbh };
+
+  if (prismInstallPrompt) {
+    const iw = 150, ih = 34;
+    const ix = W / 2 - iw / 2;
+    const iy = lby - 46;
+    G.installRect = { x: ix, y: iy, w: iw, h: ih };
+    ctx.fillStyle = 'rgba(84,242,255,0.14)';
+    roundedRect(ctx, ix, iy, iw, ih, 10);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(84,242,255,0.7)';
+    ctx.lineWidth = 1.5;
+    roundedRect(ctx, ix, iy, iw, ih, 10);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(190,248,255,0.98)';
+    ctx.font = '800 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(t('installApp'), ix + iw / 2, iy + 22);
+  } else {
+    G.installRect = null;
+  }
+
   ctx.textAlign = 'center';
   ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
 
@@ -4871,6 +4902,17 @@ window.__prism = {
 <script>
 /* PWA installability: Chrome on Android only offers "Install app" for a site whose
    service worker is registered and handling fetch, so register it after load. */
+/* Android Chrome hides the install entry in a menu most people never find, so
+   keep the deferred prompt and offer our own button on the title screen. */
+var prismInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function (e) {
+  e.preventDefault();
+  prismInstallPrompt = e;
+});
+window.addEventListener('appinstalled', function () {
+  prismInstallPrompt = null;
+});
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('/sw.js').catch(function () {});
