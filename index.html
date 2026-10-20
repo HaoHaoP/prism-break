@@ -308,6 +308,7 @@ const I18N = {
     shielded: '护盾保护', crit: '暴击', enraged: '核心狂暴',
     chain: '染光连锁', fusion: '合 光', fusionReady: '合光 F', fusionCool: '合光',
     rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
+    odWaste: (n) => '只剩 ' + n + ' 块砖，超载留着', odCarry: '清层返还 30% 充能',
     floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
     tagOffense: '攻击', tagControl: '控制', tagDefense: '防御', tagRisk: '风险',
     langBtn: 'EN', daily: '每 日 挑 战', dailyBest: '今日最佳',
@@ -337,6 +338,7 @@ const I18N = {
     shielded: 'SHIELDED', crit: 'CRIT', enraged: 'ENRAGED',
     chain: 'LIT CHAIN', fusion: 'FUSION', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
+    odWaste: (n) => n + ' bricks left — save it', odCarry: 'floor clear refunds 30%',
     floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
     tagOffense: 'OFFENSE', tagControl: 'CONTROL', tagDefense: 'DEFENSE', tagRisk: 'RISK',
     langBtn: '中文', daily: 'DAILY RUN', dailyBest: "TODAY'S BEST",
@@ -463,6 +465,8 @@ const G = {
   hazardTimer: 0,
   paddleDebuff: 0,
   layerBricks: 0,
+  clearPending: 0,
+  clearAt: 0,
   toneChain: 0,
   fusionCD: 0,
   fusionBeam: null,
@@ -872,6 +876,8 @@ function beginLevel() {
   G.hazardTimer = 0;
   G.paddleDebuff = 0;
   G.layerBricks = 0;
+  G.clearPending = 0;
+  G.clearAt = 0;
   G.history = [];
   if (G.level > 1 && G.level % 5 === 1) G.rewinds = Math.min(3, (G.rewinds || 0) + 1);
   G.combo = 0;
@@ -1351,7 +1357,12 @@ function tryOverdrive() {
 
 function enterCardSelect() {
   G.state = 'cardselect';
+  G.clearPending = 0;
+  G.clearAt = 0;
   G.flash = 0;
+  // a floor clear refunds part of the meter so a finisher is not a total loss
+  const refund = Math.max(G.charge, odMax() * 0.3);
+  G.charge = Math.min(odMax(), refund);
   G.cardChoices = offeringCards();
   G.hoverCard = -1;
 }
@@ -1570,7 +1581,7 @@ function updateBalls(dt) {
     if (b.trail.length > 9) b.trail.shift();
   }
 
-  if (G.balls.length === 0 && !G.fusionBeam) {
+  if (G.balls.length === 0 && !G.fusionBeam && !G.clearPending) {
     // a rewind charges lets you take that drop back
     if (G.rewinds > 0 && G.state === 'playing' && G.history.length > 12) {
       G.state = 'rewindable';
@@ -1742,6 +1753,7 @@ function updateParticles(dt) {
 }
 
 function update(dt) {
+  const realDt = dt;          // wall-clock, unaffected by slow motion
   G.time += dt;
   if (G.tip > 0) G.tip = Math.max(0, G.tip - dt);
   if (G.slowTimer > 0) {
@@ -1781,8 +1793,22 @@ function update(dt) {
       G.comboTimer -= dt;
       if (G.comboTimer <= 0) G.combo = 0;
     }
-    if (G.state === 'playing' && bricksLeft() === 0) {
-      enterCardSelect();
+    if (G.state === 'playing' && bricksLeft() === 0 && !G.clearPending) {
+      // hold the floor open for a beat so the last explosion and slow-motion land
+      G.clearPending = 1.0;
+      G.clearAt = (window.performance && performance.now ? performance.now() : Date.now()) + 1000;
+      G.slowTimer = Math.max(G.slowTimer, 0.75);
+      if (G.floaters.length < 9) floatText(W / 2, H * 0.44, t('cleared', G.level), themeFor(G.level).accent);
+    }
+    if (G.clearAt) {
+      // wall-clock countdown so neither slow motion nor a low frame rate stretches it
+      const nowMs = (window.performance && performance.now ? performance.now() : Date.now());
+      G.clearPending = Math.max(0, (G.clearAt - nowMs) / 1000);
+      if (nowMs >= G.clearAt) {
+        G.clearAt = 0;
+        G.clearPending = 0;
+        enterCardSelect();
+      }
     }
     if (G.state === 'playing') pushHistory();
   } else if (G.state === 'rewindable') {
