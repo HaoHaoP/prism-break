@@ -22,6 +22,7 @@
 - 盾没赶上的角度，球就出界，扣一条命
 - 清空所有环进入下一环，砖块血量随层数上涨
 - 三圈、48 块砖、每块砖带一个血量数字，球速随层数提升
+- **环会转**：从第 2 环起，外面两圈以不同速度和方向缓慢自转（内圈不转），砖块跟着漂移，你的瞄准得**提前量**——每一秒目标都在往旁边溜
 - **核心是电池**：球每次撞到中心核心都在充能（核心外面那圈金色进度就是它）。充满 8 格后点一下屏幕（或空格）释放**脉冲**——全场砖块掉一格血，盾同时加宽 62% 持续 4.5 秒。所以「让球多绕核心」不是白绕
 - 环上有三种怪砖：**分裂**（多一颗球）、**减速**（球速降到 66%，给你喘息）、**扩盾**（盾变宽 6 秒）
 
@@ -53,7 +54,7 @@
 
 ## 层规则
 
-从第 2 层起，大半的层会随机带一条**层规则**（HUD 左上角标注），当场改变打法：
+从第 2 层起，大半的层会随机带一条**层规则**（HUD 左上角标注），当场改变打法。**从第 6 层起会叠第二条**，两条规则的倍率相乘、球速因子也相乘——「急流 + 静滞」正好抵消成 1.01 倍，而「下坠 + 贪婪」是得分 ×1.92 加持续下坠。HUD 上会标注「双层规则」。
 
 | 规则 | 效果 |
 | --- | --- |
@@ -156,6 +157,8 @@ Floors also mix in **regenerating** bricks, **prism cores** that flip your tone 
 
 From floor 2 on, most floors carry a random rule (shown top-left): **CURRENT** (ball speed +15%), **STILL** (−12%), **DENSE** (+1 hp, score ×1.4), **GREED** (score ×1.6, speed +8%), **SWARM** (all bricks 1 hp, score ×1.2) **BLACKOUT** (brick health hidden), **DOWNDRAFT** (constant downward pull, score ×1.2) or **CROSSWIND** (the ball gets blown sideways, score ×1.2) or **COLOUR WHEEL** (every brick rotates its tone every 5s, breaking your chain, score ×1.3).
 
+From floor 6 a floor can stack a **second** rule on top: multipliers multiply and speed factors multiply too, so SWIFT + STILL cancels out to ×1.01 while DOWNDRAFT + GREED becomes score ×1.92 with a constant pull. The HUD labels these floors TWO MODIFIERS.
+
 ## Overdrive
 
 Breaking bricks charges the meter. At full, `SHIFT` fires a prism burst: every brick takes a hit, the screen flashes, and time drops to a third speed so you can reposition.
@@ -199,6 +202,7 @@ No paddle, no wall. Bricks sit on **three concentric rings** around a glowing co
 - Where the ball lands on the arc sets its return line: dead centre bounces it straight back radially, off-centre adds a tangential kick — that is the whole skill of the mode
 - Any angle the shield misses is a ball lost and a life gone
 - Clear every ring to advance; brick health climbs with the ring count
+- **The rings rotate**: from ring 2 the outer two turn at different speeds and opposite directions (the inner ring stays put), so bricks drift and your aim has to lead the target
 - **The core is a battery**: every bounce off the centre charges it (the gold ring outside the core). At eight charges, tap or press space to fire a **pulse** — every brick on the board loses a point of health and the shield widens 62% for 4.5s. Circling the core is no longer wasted travel
 - Three brick types sit on the rings: **split** (spawns another ball), **slow** (drops the ball to 66% speed) and **wide** (shield +62% for 6s)
 - `ESC` returns to the menu

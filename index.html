@@ -333,14 +333,49 @@ const MODIFIERS = [
   { id: 'dark',  zh: '暗场', en: 'BLACKOUT', zhDesc: '隐藏砖块血条',            enDesc: 'brick health hidden',    blackout: true },
 ];
 
+function modHas(key) {
+  const list = G.mods || [];
+  for (let i = 0; i < list.length; i++) if (list[i] && list[i][key]) return list[i];
+  return null;
+}
+
+function modSpeedMul() {
+  let v = 1;
+  const list = G.mods || [];
+  for (let i = 0; i < list.length; i++) if (list[i] && list[i].speed) v *= list[i].speed;
+  return v;
+}
+
+function modScoreMul() {
+  let v = 1;
+  const list = G.mods || [];
+  for (let i = 0; i < list.length; i++) if (list[i] && list[i].score) v *= list[i].score;
+  return v;
+}
+
+function modHpAdd() {
+  let v = 0;
+  const list = G.mods || [];
+  for (let i = 0; i < list.length; i++) if (list[i] && list[i].hp) v += list[i].hp;
+  return v;
+}
+
 function modName(m) { return LANG === 'zh' ? m.zh : m.en; }
 function modDesc(m) { return LANG === 'zh' ? m.zhDesc : m.enDesc; }
 
-function rollModifier(level) {
-  if (level <= 1) return null;
-  if (level % 5 === 0) return null;          // boss floors stay clean
-  if (RNG() > 0.6) return null;
-  return MODIFIERS[(RNG() * MODIFIERS.length) | 0];
+function rollModifiers(level) {
+  if (level <= 1) return [];
+  if (level % 5 === 0) return [];            // boss floors stay clean
+  if (RNG() > 0.6) return [];
+  const a = MODIFIERS[(RNG() * MODIFIERS.length) | 0];
+  // from floor 6 the floor stacks a second, conflicting rule on top
+  if (level >= 6 && RNG() < 0.55) {
+    let b = MODIFIERS[(RNG() * MODIFIERS.length) | 0];
+    let guard = 0;
+    while (b.id === a.id && guard++ < 14) b = MODIFIERS[(RNG() * MODIFIERS.length) | 0];
+    if (b.id !== a.id) return [a, b];
+  }
+  return [a];
 }
 
 /* ---------------- i18n ---------------- */
@@ -375,7 +410,7 @@ const I18N = {
  blitz: '疾速 60s', timeUp: '时间到', blitzBest: '疾速最高',
  twinHalf: '孪生 1/2 —— 快打另一块', twinDone: '孪生破碎',
  coreMode: '核心', ringWord: (n) => '第 ' + n + ' 环', coreClear: '环已清', core: '核心',
- pulse: '脉冲', chargeWord: '充能', fusionReady: '合光 F', fusionCool: '合光',
+ pulse: '脉冲', chargeWord: '充能', stackedFloor: '双层规则', fusionReady: '合光 F', fusionCool: '合光',
     rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
     odWaste: (n) => '只剩 ' + n + ' 块砖，超载留着', odCarry: '清层返还 30% 充能',
     floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
@@ -409,7 +444,7 @@ const I18N = {
  blitz: 'BLITZ 60s', timeUp: "TIME'S UP", blitzBest: 'BLITZ BEST',
  twinHalf: 'TWIN 1/2 — break its pair', twinDone: 'TWIN BROKEN',
  coreMode: 'CORE', ringWord: (n) => 'RING ' + n, coreClear: 'RING CLEAR', core: 'CORE',
- pulse: 'PULSE', chargeWord: 'CHARGE', fusionReady: 'FUSION F', fusionCool: 'FUSION',
+ pulse: 'PULSE', chargeWord: 'CHARGE', stackedFloor: 'TWO MODIFIERS', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
     odWaste: (n) => n + ' bricks left — save it', odCarry: 'floor clear refunds 30%',
     floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
@@ -581,7 +616,7 @@ const G = {
   achToast: null,
   achToastT: 0,
   wonAt: 0,
-  mod: null,
+  mods: [],
   daily: false,
   cardChoices: [],
   cardRects: [],
@@ -738,7 +773,7 @@ function bricksLeft() {
 
 function ballSpeed() {
   const comboBoost = 1 + Math.min(G.combo || 0, 30) * 0.004;   // up to +12%
-  const modBoost = G.mod && G.mod.speed ? G.mod.speed : 1;
+  const modBoost = modSpeedMul();
   return clamp(520 + (G.level - 1) * 10, 520, 820) * G.upg.speedMul * comboBoost * modBoost;
 }
 
@@ -986,13 +1021,14 @@ function startRun(daily) {
 }
 
 function beginLevel() {
-  G.mod = rollModifier(G.level);
+  G.mods = rollModifiers(G.level);
   G.bricks = buildLevel(G.level);
   G.stats.depthBest = Math.max(G.stats.depthBest || 0, G.level);
-  if (G.mod && G.mod.hp) {
+  const hpAdd = modHpAdd();
+  if (hpAdd) {
     for (const b of G.bricks) {
       if (!b.breakable) continue;
-      b.hp = Math.max(1, b.hp + G.mod.hp);
+      b.hp = Math.max(1, b.hp + hpAdd);
       b.maxHp = b.hp;
     }
   }
@@ -1251,7 +1287,7 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
   }
   if (G.combo > (G.stats.comboBest || 0)) G.stats.comboBest = G.combo;
   const gain = Math.round((10 + b.maxHp * 6) * (1 + G.combo * 0.06) * (match ? 1.6 : 1)
-    * (G.mod && G.mod.score ? G.mod.score : 1));
+    * modScoreMul());
   G.score += gain;
   G.charge = Math.min(odMax(), (G.charge || 0) + (match ? 13 : 7) * (1 + (G.upg.chargeMul || 0)));
   burst(b.x + b.w / 2, b.y + b.h / 2, b.boss ? 46 : 14, b.color, b.boss ? 240 : 150);
@@ -1772,8 +1808,10 @@ function updateBalls(dt) {
     }
 
     // floor modifiers that bend the ball off a straight line
-    if (G.mod && G.mod.forceY && !G.upg.anchor) b.vy += G.mod.forceY * dt;
-    if (G.mod && G.mod.forceX && !G.upg.anchor) b.vx += G.mod.forceX * Math.sin(G.time * 0.55) * dt;
+    const modY = modHas('forceY');
+    const modX = modHas('forceX');
+    if (modY && !G.upg.anchor) b.vy += modY.forceY * dt;
+    if (modX && !G.upg.anchor) b.vx += modX.forceX * Math.sin(G.time * 0.55) * dt;
     const sp0 = Math.hypot(b.vx, b.vy), cap0 = target * 1.5;
     if (sp0 > cap0) { b.vx *= cap0 / sp0; b.vy *= cap0 / sp0; }
 
@@ -1920,11 +1958,12 @@ function doRewind() {
 /* Colour wheel: every brick rotates its tone on a timer, so the cluster you were
    lining up moves out from under you. */
 function updateCycle(dt) {
-  if (!G.mod || !G.mod.cycle) { G.cycleT = 0; return; }
-  if (!G.cycleT) G.cycleT = G.mod.cycle;
+  const cyc = modHas('cycle');
+  if (!cyc) { G.cycleT = 0; return; }
+  if (!G.cycleT) G.cycleT = cyc.cycle;
   G.cycleT -= dt;
   if (G.cycleT > 0) return;
-  G.cycleT = G.mod.cycle;
+  G.cycleT = cyc.cycle;
   for (const b of G.bricks) {
     if (!b.alive || !b.breakable || b.tone < 0) continue;
     b.tone = (b.tone + 1) % 3;
@@ -2236,7 +2275,7 @@ function drawBricks() {
     }
 
     // tough bricks get a heavier top bar instead of hp dots
-    if (b.breakable && b.maxHp > 1 && b.kind === 'plain' && b.hp < b.maxHp && !(G.mod && G.mod.blackout)) {
+    if (b.breakable && b.maxHp > 1 && b.kind === 'plain' && b.hp < b.maxHp && !modHas('blackout')) {
       const filled = clamp(b.hp / b.maxHp, 0, 1);
       ctx.globalAlpha = 0.9;
       ctx.fillStyle = 'rgba(255,255,255,' + (0.55 + filled * 0.4) + ')';
@@ -2510,11 +2549,21 @@ function drawHud() {
     ctx.fill();
   }
 
-  if (G.mod) {
+  const modList = (G.mods || []).filter(Boolean);
+  if (modList.length) {
     ctx.textAlign = 'left';
     ctx.font = '700 12px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
-    ctx.fillStyle = 'rgba(255,209,102,0.9)';
-    ctx.fillText(modName(G.mod) + '  ·  ' + modDesc(G.mod), 20, 100);
+    const stacked = modList.length > 1;
+    ctx.fillStyle = stacked ? 'rgba(255,150,90,0.95)' : 'rgba(255,209,102,0.9)';
+    let label = modList.map((m) => modName(m)).join(' + ');
+    const mul = modScoreMul();
+    if (mul > 1.01) label += '  ×' + mul.toFixed(2);
+    ctx.fillText(label, 20, 100);
+    if (stacked) {
+      ctx.font = '600 10px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+      ctx.fillStyle = 'rgba(255,150,90,0.7)';
+      ctx.fillText(t('stackedFloor'), 20, 114);
+    }
   }
 
   for (let i = 0; i < (G.rewinds || 0); i++) {
@@ -3662,6 +3711,7 @@ const CORE = {
   chargeMax: 8,
   shieldBoost: 0,
   slowT: 0,
+  ringSpin: [0, 0, 0],
 };
 
 function coreShieldW() {
@@ -3711,6 +3761,10 @@ function coreBuild(level) {
     { r0: 208, r1: 246, n: 18 },
   ];
   const spinOffset = level * 0.21;
+  const spinScale = 1 + (level - 1) * 0.13;
+  CORE.ringSpin[0] = 0;
+  CORE.ringSpin[1] = level >= 2 ? 0.13 * spinScale : 0;
+  CORE.ringSpin[2] = level >= 2 ? -0.21 * spinScale : 0;
   for (let ri = 0; ri < rings.length; ri++) {
     const ring = rings[ri];
     const aw = (TAU / ring.n) * 0.8;
@@ -3992,6 +4046,12 @@ function updateCore(dt) {
       coreSpawnBall();
     }
     return;
+  }
+
+  // the rings drift: aim has to lead the target
+  for (const bw of CORE.bricks) {
+    const sp2 = CORE.ringSpin[bw.ring];
+    if (bw.alive && sp2) bw.a = coreNormA(bw.a + sp2 * dt);
   }
 
   // the shield chases the pointer angle
@@ -4321,6 +4381,11 @@ window.__prism = {
   hit: (i, tone) => damageBrick(G.bricks[i], G.upg.dmg, G.bricks[i].x + 5, G.bricks[i].y + 5, false, tone === undefined ? G.tone : tone),
   debug: G,
   mods: MODIFIERS,
+  rollModifiers: (lv) => rollModifiers(lv),
+  modHas: (k) => modHas(k),
+  modSpeedMul: () => modSpeedMul(),
+  modScoreMul: () => modScoreMul(),
+  beginLevel: () => beginLevel(),
   cards: CARDS,
   buildLevel: (lv) => buildLevel(lv),
   saveImage: () => saveReportImage(),
@@ -4329,7 +4394,7 @@ window.__prism = {
   coreReset: (hard) => coreReset(hard),
   coreHit: (bw) => coreHitBrick(bw),
   corePulse: () => corePulse(),
-  applyMod: (id) => { G.mod = id ? MODIFIERS.find((m) => m.id === id) || null : null; },
+  applyMod: (id) => { G.mods = id ? [MODIFIERS.find((m) => m.id === id)].filter(Boolean) : []; },
 };
 })();
 </script>
