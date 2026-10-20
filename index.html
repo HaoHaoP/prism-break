@@ -2959,30 +2959,71 @@ window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 120));
 
 let touchDrag = null;
+let dragPointerId = null;
+
+function pointInRect(p, r) {
+  return !!r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+}
+
+/* Which finger is a UI tap and which one is steering the paddle? Without this,
+   a second finger tapping a button tore the drag state out from under the first. */
+function hitsUI(p) {
+  if (G.state === 'playing') {
+    return pointInRect(p, G.pauseRect) || pointInRect(p, G.muteRect)
+      || pointInRect(p, G.odRect) || pointInRect(p, G.fuseRect)
+      || (G.toneRects || []).some((r) => pointInRect(p, r));
+  }
+  if (G.state === 'menu') return pointInRect(p, G.langRect) || pointInRect(p, G.dailyRect);
+  if (G.state === 'cardselect') return (G.cardRects || []).some((r) => pointInRect(p, r));
+  if (G.state === 'gameover') return pointInRect(p, G.copyRect);
+  return false;
+}
 
 canvas.addEventListener('pointermove', (e) => {
-  if (e.pointerType === 'touch' && touchDrag) {
+  if (e.pointerType === 'touch') {
+    if (e.pointerId !== dragPointerId || !touchDrag) return;   // other fingers never steer
     const r = canvas.getBoundingClientRect();
     const dx = ((e.clientX - touchDrag.x) / Math.max(r.width, 1)) * W;
     G.pointers.active = true;
     G.pointers.x = touchDrag.target + dx;
     G.paddle.targetX = G.pointers.x;
-    if (G.state === 'cardselect') pointerMove(e.clientX, e.clientY);
     return;
   }
   pointerMove(e.clientX, e.clientY);
 });
+
 canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   if (e.pointerType === 'touch') {
-    const r = canvas.getBoundingClientRect();
-    touchDrag = { x: e.clientX, target: G.paddle.targetX, w: r.width };
+    const lp = toLogic(e.clientX, e.clientY);
+    if (!hitsUI(lp) && dragPointerId === null) {
+      dragPointerId = e.pointerId;
+      touchDrag = { x: e.clientX, target: G.paddle.targetX };
+    }
   }
   onPointerDown(e.clientX, e.clientY);
 });
-canvas.addEventListener('pointerup', (e) => { if (e.pointerType === 'touch') touchDrag = null; });
-canvas.addEventListener('pointercancel', () => { touchDrag = null; });
-canvas.addEventListener('pointerleave', () => { G.pointers.active = false; touchDrag = null; });
+
+canvas.addEventListener('pointerup', (e) => {
+  if (e.pointerType === 'touch' && e.pointerId === dragPointerId) {
+    dragPointerId = null;
+    touchDrag = null;
+  }
+});
+canvas.addEventListener('pointercancel', (e) => {
+  if (e.pointerId === dragPointerId) {
+    dragPointerId = null;
+    touchDrag = null;
+  }
+});
+canvas.addEventListener('pointerleave', (e) => {
+  if (e.pointerType === 'touch') {
+    if (e.pointerId === dragPointerId) { dragPointerId = null; touchDrag = null; }
+    return;
+  }
+  G.pointers.active = false;
+});
+
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 window.addEventListener('keydown', (e) => {
