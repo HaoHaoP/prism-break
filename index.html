@@ -2186,9 +2186,10 @@ function drawHud() {
     ctx.textAlign = 'center';
     ctx.font = '700 15px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(190,205,225,0.92)';
-    ctx.fillText(LANG === 'zh' ? 'Q / E 切换光色 —— 与砖块同色伤害翻倍' : 'Q / E shifts your light — matching a brick doubles the damage', W / 2, H - 208);
+    ctx.fillText(LANG === 'zh' ? '点左下色块（或 Q / E）换成砖块同色 —— 伤害翻倍，三连同色炸全场'
+      : 'tap the swatches (or Q / E) to match the brick tone — three in a row detonates the colour', W / 2, H - 208);
     ctx.fillStyle = 'rgba(255,209,102,0.9)';
-    ctx.fillText(LANG === 'zh' ? '破砖充满超载，按 SHIFT 爆发' : 'broken bricks fill overdrive — SHIFT to burst', W / 2, H - 184);
+    ctx.fillText(LANG === 'zh' ? '破砖充满超载，点能量条或按 SHIFT 释放' : 'broken bricks fill overdrive — tap the meter or press SHIFT', W / 2, H - 184);
     ctx.globalAlpha = 1;
   }
 
