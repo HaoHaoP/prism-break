@@ -25,6 +25,7 @@
 - **环会转**：从第 2 环起，外面两圈以不同速度和方向缓慢自转（内圈不转），砖块跟着漂移，你的瞄准得**提前量**——每一秒目标都在往旁边溜
 - **核心是电池**：球每次撞到中心核心都在充能（核心外面那圈金色进度就是它）。充满 8 格后点一下屏幕（或空格）释放**脉冲**——全场砖块掉一格血，盾同时加宽 62% 持续 4.5 秒。所以「让球多绕核心」不是白绕
 - 环上有三种怪砖：**分裂**（多一颗球）、**减速**（球速降到 66%，给你喘息）、**扩盾**（盾变宽 6 秒）
+- **CORE 有自己的一套成就和统计**（和主模式分开存）：铁壁（连续接球 15 次）、脉冲大师（单局 3 次脉冲）、猎手（无伤通过 Boss 环）、长明（到达第 5 环）、一点不差（正中盾心接球 10 次）。结算页会显示接球数、最高连击、脉冲次数和成就进度
 - **每第 3 环是 Boss 环**：没有砖块，外圈变成三段**暗弧**在绕圈旋转。暗弧本身只是反射面（撞上去球会被弹回来，不扣命），但每隔几秒会有其中一段**亮起一个金色弱点**——球撞到那个点才掉 Boss 血。Boss 血量随环数涨（第 3 环 4 血、第 9 环 6 血）。所以这一环从「追角度接球」变成「用盾把球喂到那个亮着的点上」
 
 几何一换，所有肌肉记忆都失效：你不再预测球的落点，而是在**追角度**。`ESC` 回菜单。
@@ -206,6 +207,7 @@ No paddle, no wall. Bricks sit on **three concentric rings** around a glowing co
 - **The rings rotate**: from ring 2 the outer two turn at different speeds and opposite directions (the inner ring stays put), so bricks drift and your aim has to lead the target
 - **The core is a battery**: every bounce off the centre charges it (the gold ring outside the core). At eight charges, tap or press space to fire a **pulse** — every brick on the board loses a point of health and the shield widens 62% for 4.5s. Circling the core is no longer wasted travel
 - Three brick types sit on the rings: **split** (spawns another ball), **slow** (drops the ball to 66% speed) and **wide** (shield +62% for 6s)
+- **CORE keeps its own achievements and stats**, stored separately from the main mode: IRONWALL (15 catches in a row), PULSE MASTER (3 pulses in one run), HUNTER (clear a boss ring untouched), ENDURANCE (reach ring 5), PRECISION (catch dead-centre 10 times). The results screen reports catches, best streak, pulses and achievement progress
 - **Every 3rd ring is a boss ring**: no bricks at all, and three **dark arcs** circle the rim. The arcs are just mirrors — a ball that hits one bounces off and nothing is lost — but every few seconds one of them **lights up a golden node**, and only a hit on that node costs the boss health. Boss health scales with the ring (4 at ring 3, 6 at ring 9). The mode flips from chasing an angle to feeding the ball into the lit point
 - `ESC` returns to the menu
 

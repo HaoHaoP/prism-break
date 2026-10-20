@@ -410,7 +410,8 @@ const I18N = {
  blitz: '疾速 60s', timeUp: '时间到', blitzBest: '疾速最高',
  twinHalf: '孪生 1/2 —— 快打另一块', twinDone: '孪生破碎',
  coreMode: '核心', ringWord: (n) => '第 ' + n + ' 环', coreClear: '环已清', core: '核心',
- pulse: '脉冲', chargeWord: '充能', stackedFloor: '双层规则', bossWord: '吞噬者', bossWeak: '打弱点', fusionReady: '合光 F', fusionCool: '合光',
+ pulse: '脉冲', chargeWord: '充能', stackedFloor: '双层规则', bossWord: '吞噬者', bossWeak: '打弱点',
+ bossFlawless: '无伤通环', achWord: '成就', coreStatsWord: '接球', streakWord: '连击', fusionReady: '合光 F', fusionCool: '合光',
     rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
     odWaste: (n) => '只剩 ' + n + ' 块砖，超载留着', odCarry: '清层返还 30% 充能',
     floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
@@ -444,7 +445,8 @@ const I18N = {
  blitz: 'BLITZ 60s', timeUp: "TIME'S UP", blitzBest: 'BLITZ BEST',
  twinHalf: 'TWIN 1/2 — break its pair', twinDone: 'TWIN BROKEN',
  coreMode: 'CORE', ringWord: (n) => 'RING ' + n, coreClear: 'RING CLEAR', core: 'CORE',
- pulse: 'PULSE', chargeWord: 'CHARGE', stackedFloor: 'TWO MODIFIERS', bossWord: 'DEVOURER', bossWeak: 'HIT THE GLOWING NODE', fusionReady: 'FUSION F', fusionCool: 'FUSION',
+ pulse: 'PULSE', chargeWord: 'CHARGE', stackedFloor: 'TWO MODIFIERS', bossWord: 'DEVOURER', bossWeak: 'HIT THE GLOWING NODE',
+ bossFlawless: 'FLAWLESS RING', achWord: 'ACH', coreStatsWord: 'CATCHES', streakWord: 'STREAK', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
     odWaste: (n) => n + ' bricks left — save it', odCarry: 'floor clear refunds 30%',
     floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
@@ -3713,7 +3715,68 @@ const CORE = {
   slowT: 0,
   ringSpin: [0, 0, 0],
   boss: null,
+  ringLifeLost: false,
+  achToast: null,
+  achToastT: 0,
+  achs: {},
+  stats: {
+    catches: 0,
+    catchStreak: 0,
+    catchStreakBest: 0,
+    pulsesRun: 0,
+    pulsesBest: 0,
+    bossPerfect: 0,
+    ringBest: 1,
+    precise: 0,
+    runs: 0,
+  },
 };
+
+const CORE_ACH = [
+  { id: 'ironwall', zh: '铁壁', en: 'IRONWALL', zhDesc: '连续接球 15 次', enDesc: 'catch 15 in a row' },
+  { id: 'pulse3', zh: '脉冲大师', en: 'PULSE MASTER', zhDesc: '单局 3 次脉冲', enDesc: '3 pulses in one run' },
+  { id: 'hunter', zh: '猎手', en: 'HUNTER', zhDesc: '无伤通过 Boss 环', enDesc: 'clear a boss ring untouched' },
+  { id: 'deep', zh: '长明', en: 'ENDURANCE', zhDesc: '到达第 5 环', enDesc: 'reach ring 5' },
+  { id: 'precise', zh: '一点不差', en: 'PRECISION', zhDesc: '正中盾心接球 10 次', enDesc: 'catch dead-centre 10 times' },
+];
+
+const CORE_ST_KEY = 'prism_core_stats.v1';
+const CORE_AC_KEY = 'prism_core_ach.v1';
+
+function coreLoadStats() {
+  try {
+    const raw = localStorage.getItem(CORE_ST_KEY);
+    if (raw) Object.assign(CORE.stats, JSON.parse(raw));
+    const ach = localStorage.getItem(CORE_AC_KEY);
+    if (ach) CORE.achs = JSON.parse(ach) || {};
+  } catch (e) {}
+}
+
+function coreSaveStats() {
+  try { localStorage.setItem(CORE_ST_KEY, JSON.stringify(CORE.stats)); } catch (e) {}
+  try { localStorage.setItem(CORE_AC_KEY, JSON.stringify(CORE.achs)); } catch (e) {}
+}
+
+function coreUnlock(id) {
+  if (CORE.achs[id]) return;
+  CORE.achs[id] = 1;
+  const a = CORE_ACH.find((x) => x.id === id);
+  if (a) {
+    CORE.achToast = a;
+    CORE.achToastT = 3.0;
+    Sound.card();
+    coreSaveStats();
+  }
+}
+
+function checkCoreAch() {
+  const s = CORE.stats;
+  if (s.catchStreakBest >= 15) coreUnlock('ironwall');
+  if (s.pulsesBest >= 3) coreUnlock('pulse3');
+  if (s.bossPerfect >= 1) coreUnlock('hunter');
+  if (s.ringBest >= 5) coreUnlock('deep');
+  if (s.precise >= 10) coreUnlock('precise');
+}
 
 function coreShieldW() {
   return CORE.shieldW * (CORE.shieldBoost > 0 ? 1.62 : 1);
@@ -3856,11 +3919,15 @@ function coreReset(hard) {
   CORE.shieldBoost = 0;
   CORE.slowT = 0;
   CORE.boss = null;
+  CORE.ringLifeLost = false;
+  CORE.stats.pulsesRun = 0;
+  if (hard) CORE.stats.runs += 1;
   coreBuild(CORE.level);
   coreSpawnBall();
 }
 
 function startCore() {
+  coreLoadStats();
   CORE.active = true;
   CORE.over = false;
   Sound.init();
@@ -3873,6 +3940,10 @@ function startCore() {
 function corePulse() {
   if (CORE.over || CORE.charge < CORE.chargeMax) return;
   CORE.charge = 0;
+  CORE.stats.pulsesRun += 1;
+  if (CORE.stats.pulsesRun > CORE.stats.pulsesBest) CORE.stats.pulsesBest = CORE.stats.pulsesRun;
+  coreSaveStats();
+  checkCoreAch();
   CORE.shieldBoost = 4.5;
   CORE.flash = 0.55;
   CORE.shake = 15;
@@ -3985,6 +4056,12 @@ function coreBallStep(b) {
         b.vx = (b.vx / norm0) * sp0;
         b.vy = (b.vy / norm0) * sp0;
         if (CORE.boss.hp <= 0) {
+          if (!CORE.ringLifeLost) {
+            CORE.stats.bossPerfect += 1;
+            coreSaveStats();
+            checkCoreAch();
+            coreFloat(CORE.cx, CORE.cy + CORE.coreR + 40, t('bossFlawless'), '#7dffb0');
+          }
           CORE.boss = null;
           CORE.score += 900 + CORE.level * 120;
           CORE.clearT = 1.2;
@@ -4036,6 +4113,14 @@ function coreBallStep(b) {
       b.y = CORE.cy + uy * (CORE.shieldR - b.r - 1);
       CORE.shieldHitGlow = 1;
       CORE.shake = Math.min(CORE.shake + 2.4, 10);
+      CORE.stats.catches += 1;
+      CORE.stats.catchStreak += 1;
+      if (CORE.stats.catchStreak > CORE.stats.catchStreakBest) {
+        CORE.stats.catchStreakBest = CORE.stats.catchStreak;
+      }
+      if (Math.abs(off) < 0.18) CORE.stats.precise += 1;
+      coreSaveStats();
+      checkCoreAch();
       Sound.paddle();
       haptic(10);
       return;
@@ -4086,6 +4171,7 @@ function updateCore(dt) {
   if (CORE.shake > 0) CORE.shake = Math.max(0, CORE.shake - dt * 30);
   if (CORE.flash > 0) CORE.flash = Math.max(0, CORE.flash - dt * 2.2);
   if (CORE.shieldHitGlow > 0) CORE.shieldHitGlow = Math.max(0, CORE.shieldHitGlow - dt * 3.4);
+  if (CORE.achToastT > 0) CORE.achToastT = Math.max(0, CORE.achToastT - dt);
   if (CORE.shieldBoost > 0) CORE.shieldBoost = Math.max(0, CORE.shieldBoost - dt);
   if (CORE.slowT > 0) CORE.slowT = Math.max(0, CORE.slowT - dt);
   if (CORE.comboT > 0) {
@@ -4118,6 +4204,10 @@ function updateCore(dt) {
     CORE.clearT -= dt;
     if (CORE.clearT <= 0) {
       CORE.level += 1;
+      if (CORE.level > CORE.stats.ringBest) CORE.stats.ringBest = CORE.level;
+      CORE.ringLifeLost = false;
+      coreSaveStats();
+      checkCoreAch();
       CORE.balls.length = 0;
       coreBuild(CORE.level);
       coreSpawnBall();
@@ -4174,6 +4264,9 @@ function updateCore(dt) {
   if (!CORE.balls.length) {
     CORE.lives -= 1;
     CORE.combo = 0;
+    CORE.ringLifeLost = true;
+    CORE.stats.catchStreak = 0;
+    coreSaveStats();
     CORE.flash = 0.55;
     CORE.shake = 14;
     Sound.lose();
@@ -4479,6 +4572,30 @@ function renderCore() {
     ctx.fillText(t('coreClear'), W / 2, H / 2 - CORE.coreR - 40);
   }
 
+  if (CORE.achToastT > 0 && CORE.achToast) {
+    const a2 = CORE.achToast;
+    const fade = Math.min(1, CORE.achToastT / 0.4);
+    ctx.globalAlpha = fade;
+    const tw = 320;
+    const tx2 = (W - tw) / 2;
+    const ty2 = CORE.cy - CORE.R * 0.72;
+    ctx.fillStyle = 'rgba(8,16,26,0.92)';
+    roundedRect(ctx, tx2, ty2, tw, 46, 10);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(125,255,176,0.7)';
+    ctx.lineWidth = 1.5;
+    roundedRect(ctx, tx2, ty2, tw, 46, 10);
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.font = '800 14px ' + FONT;
+    ctx.fillStyle = '#7dffb0';
+    ctx.fillText(t('achWord') + ' · ' + (LANG === 'zh' ? a2.zh : a2.en), W / 2, ty2 + 21);
+    ctx.font = '600 11px ' + FONT;
+    ctx.fillStyle = 'rgba(200,225,215,0.85)';
+    ctx.fillText(LANG === 'zh' ? a2.zhDesc : a2.enDesc, W / 2, ty2 + 37);
+    ctx.globalAlpha = 1;
+  }
+
   if (CORE.over) {
     ctx.fillStyle = 'rgba(4,5,12,0.9)';
     ctx.fillRect(0, 0, W, H);
@@ -4492,6 +4609,18 @@ function renderCore() {
     ctx.font = '700 16px ' + FONT;
     ctx.fillStyle = 'rgba(170,188,212,0.9)';
     ctx.fillText(t('ringWord', CORE.level) + '   ·   ' + t('best') + ' ' + CORE.best, W / 2, H / 2 + 68);
+
+    const achN = Object.keys(CORE.achs || {}).filter((k) => CORE.achs[k]).length;
+    ctx.font = '600 13px ' + FONT;
+    ctx.fillStyle = 'rgba(150,172,200,0.85)';
+    ctx.fillText(
+      t('coreStatsWord') + ' ' + CORE.stats.catches +
+      '   ·   ' + t('streakWord') + ' ' + CORE.stats.catchStreakBest +
+      '   ·   ' + t('pulse') + ' ' + CORE.stats.pulsesBest,
+      W / 2, H / 2 + 92
+    );
+    ctx.fillStyle = 'rgba(125,255,176,0.8)';
+    ctx.fillText(t('achWord') + ' ' + achN + '/' + CORE_ACH.length, W / 2, H / 2 + 112);
     const pulse = 0.55 + Math.sin(CORE.time * 4) * 0.35;
     ctx.globalAlpha = pulse;
     ctx.font = '800 19px ' + FONT;
@@ -4535,6 +4664,9 @@ window.__prism = {
   coreReset: (hard) => coreReset(hard),
   coreHit: (bw) => coreHitBrick(bw),
   corePulse: () => corePulse(),
+  coreAchievements: CORE_ACH,
+  checkCoreAch: () => checkCoreAch(),
+  coreSaveStats: () => coreSaveStats(),
   applyMod: (id) => { G.mods = id ? [MODIFIERS.find((m) => m.id === id)].filter(Boolean) : []; },
 };
 })();
