@@ -371,7 +371,7 @@ const I18N = {
     endless: '点击进入无尽模式',
     resonance: '共鸣', prismShift: '棱镜换色', regrow: '再生', fork: '分裂', vampireHeal: '吸血 +1 命',
     shielded: '护盾保护', crit: '暴击', enraged: '核心狂暴',
-    chain: '染光连锁', fusion: '合 光', slowmo: '减速', history: '历史', fusionReady: '合光 F', fusionCool: '合光',
+    chain: '染光连锁', fusion: '合 光', slowmo: '减速', history: '历史', saveImage: '存图', fusionReady: '合光 F', fusionCool: '合光',
     rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
     odWaste: (n) => '只剩 ' + n + ' 块砖，超载留着', odCarry: '清层返还 30% 充能',
     floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
@@ -401,7 +401,7 @@ const I18N = {
     endless: 'CLICK TO ENTER THE ENDLESS',
     resonance: 'RESONANCE', prismShift: 'PRISM SHIFT', regrow: 'REGROW', fork: 'FORK', vampireHeal: 'VAMPIRIC +1',
     shielded: 'SHIELDED', crit: 'CRIT', enraged: 'ENRAGED',
-    chain: 'LIT CHAIN', fusion: 'FUSION', slowmo: 'SLOW-MO', history: 'HISTORY', fusionReady: 'FUSION F', fusionCool: 'FUSION',
+    chain: 'LIT CHAIN', fusion: 'FUSION', slowmo: 'SLOW-MO', history: 'HISTORY', saveImage: 'IMAGE', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
     odWaste: (n) => n + ' bricks left — save it', odCarry: 'floor clear refunds 30%',
     floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
@@ -1283,6 +1283,11 @@ function onPointerDown(clientX, clientY) {
     const cr2 = G.copyRect;
     if (cr2 && p.x >= cr2.x && p.x <= cr2.x + cr2.w && p.y >= cr2.y && p.y <= cr2.y + cr2.h) {
       copyReport();
+      return;
+    }
+    const sr = G.saveRect;
+    if (sr && p.x >= sr.x && p.x <= sr.x + sr.w && p.y >= sr.y && p.y <= sr.y + sr.h) {
+      saveReportImage();
       return;
     }
     if (G.time - (G.deadAt || 0) > 0.6) startRun(G.daily);
@@ -2933,6 +2938,102 @@ function wrapText(text, cx, y, maxW, lh) {
   lines.forEach((l, i) => ctx.fillText(l, cx, startY + i * lh));
 }
 
+/* Draw a share card offscreen and hand it to the browser as a download. */
+function saveReportImage() {
+  const c = document.createElement('canvas');
+  c.width = 1200; c.height = 630;
+  const x = c.getContext('2d');
+  if (!x) return;
+  const FONT = 'ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+
+  const bg = x.createLinearGradient(0, 0, 1200, 630);
+  bg.addColorStop(0, '#06070d');
+  bg.addColorStop(0.55, '#0b1120');
+  bg.addColorStop(1, '#120a1e');
+  x.fillStyle = bg;
+  x.fillRect(0, 0, 1200, 630);
+
+  x.strokeStyle = 'rgba(120,200,255,0.07)';
+  x.lineWidth = 1;
+  for (let i = 0; i < 1200; i += 40) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 630); x.stroke(); }
+  for (let j = 0; j < 630; j += 40) { x.beginPath(); x.moveTo(0, j); x.lineTo(1200, j); x.stroke(); }
+
+  // three tone blooms
+  const blooms = [[300, 470, '#7cf6ff'], [620, 520, '#c69bff'], [930, 460, '#ffd166']];
+  for (const [bx2, by3, col] of blooms) {
+    const rg = x.createRadialGradient(bx2, by3, 0, bx2, by3, 190);
+    rg.addColorStop(0, hexA(col, 0.22));
+    rg.addColorStop(1, hexA(col, 0));
+    x.fillStyle = rg;
+    x.beginPath();
+    x.arc(bx2, by3, 190, 0, TAU);
+    x.fill();
+  }
+
+  // decorative brick field on the right so the card is not half empty
+  const tcol = ['#7cf6ff', '#c69bff', '#ffd166'];
+  const bwid = 84, bhei = 34, bgap = 10, bx0 = 632, by0 = 128;
+  for (let r = 0; r < 6; r++) {
+    for (let cc = 0; cc < 5; cc++) {
+      if ((r * 3 + cc * 5) % 11 === 4) continue;
+      const col = tcol[(Math.floor(r / 2) * 2 + Math.floor(cc / 2)) % 3];
+      const rx = bx0 + cc * (bwid + bgap), ry = by0 + r * (bhei + bgap);
+      x.globalAlpha = 0.34 + ((r * 5 + cc * 3) % 4) * 0.05;
+      x.fillStyle = col;
+      x.beginPath();
+      if (x.roundRect) x.roundRect(rx, ry, bwid, bhei, 6);
+      else x.rect(rx, ry, bwid, bhei);
+      x.fill();
+      x.globalAlpha = 1;
+    }
+  }
+
+  x.textAlign = 'left';
+  x.fillStyle = '#54f2ff';
+  x.font = '800 46px ' + FONT;
+  x.fillText('PRISM BREAK', 72, 118);
+  x.fillStyle = 'rgba(150,180,215,0.85)';
+  x.font = '600 22px ' + FONT;
+  x.fillText(LANG === 'zh' ? '棱镜爆破 · 霓虹打砖块 Roguelike' : 'neon brick roguelike', 74, 156);
+
+  x.fillStyle = 'rgba(170,190,215,0.8)';
+  x.font = '700 20px ' + FONT;
+  x.fillText(t('score'), 76, 250);
+  x.fillStyle = '#eafcff';
+  x.font = '800 116px ' + FONT;
+  x.fillText(String(G.score), 72, 350);
+
+  x.font = '700 26px ' + FONT;
+  x.fillStyle = '#ffd166';
+  x.fillText(t('floorWord', G.level) + '   ·   ' + t('combo') + ' ' + (G.stats.comboBest || 0), 78, 404);
+
+  const taken = CARDS.filter((cc) => (G.upg.counts[cc.id] || 0) > 0)
+    .map((cc) => (LANG === 'zh' && cc.zh ? cc.zh : cc.name));
+  if (taken.length) {
+    x.font = '700 19px ' + FONT;
+    x.fillStyle = 'rgba(160,200,235,0.9)';
+    x.fillText(taken.slice(0, 10).join('  ·  '), 78, 448);
+  }
+
+  x.fillStyle = 'rgba(120,200,255,0.9)';
+  x.font = '800 24px ' + FONT;
+  x.fillText('prism.haohaop.com', 78, 560);
+  x.fillStyle = 'rgba(120,145,180,0.7)';
+  x.font = '600 16px ' + FONT;
+  x.fillText(new Date().toISOString().slice(0, 10) + (G.daily ? '  ·  ' + t('daily') : ''), 78, 590);
+
+  try {
+    const a = document.createElement('a');
+    a.download = 'prism-break-' + G.score + '.png';
+    a.href = c.toDataURL('image/png');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    G.copied = 1.2;
+  } catch (e) {}
+  return c;
+}
+
 function drawGameOver() {
   ctx.fillStyle = 'rgba(4,5,12,0.93)';
   ctx.fillRect(0, 0, W, H);
@@ -2982,15 +3083,23 @@ function drawGameOver() {
   }
 
   // copy-report button
-  const bw2 = 208, bh2 = 30, bx2 = W / 2 - bw2 / 2, by2 = Math.max(lineY + 12, 448);
+  const bw2 = 104, bh2 = 30, by2 = Math.max(lineY + 12, 448);
+  const bx2 = W / 2 - bw2 - 4;
   G.copyRect = { x: bx2, y: by2, w: bw2, h: bh2 };
+  G.saveRect = { x: W / 2 + 4, y: by2, w: bw2, h: bh2 };
   ctx.strokeStyle = G.copied > 0 ? 'rgba(125,255,176,0.9)' : 'rgba(140,160,190,0.5)';
   ctx.lineWidth = 1.3;
   roundedRect(ctx, bx2, by2, bw2, bh2, 9);
   ctx.stroke();
   ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = G.copied > 0 ? '#7dffb0' : 'rgba(190,205,225,0.9)';
-  ctx.fillText(G.copied > 0 ? t('copied') : t('copyReport'), W / 2, by2 + 20);
+  ctx.fillText(G.copied > 0 ? t('copied') : (LANG === 'zh' ? '复制' : 'COPY'), bx2 + bw2 / 2, by2 + 20);
+
+  ctx.strokeStyle = 'rgba(140,160,190,0.5)';
+  roundedRect(ctx, W / 2 + 4, by2, bw2, bh2, 9);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(190,205,225,0.9)';
+  ctx.fillText(t('saveImage'), W / 2 + 4 + bw2 / 2, by2 + 20);
   if (G.copied > 0) G.copied -= 1 / 60;
 
   const board = loadBoard();
@@ -3345,6 +3454,8 @@ window.__prism = {
   debug: G,
   mods: MODIFIERS,
   cards: CARDS,
+  buildLevel: (lv) => buildLevel(lv),
+  saveImage: () => saveReportImage(),
   applyMod: (id) => { G.mod = id ? MODIFIERS.find((m) => m.id === id) || null : null; },
 };
 })();
