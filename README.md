@@ -36,6 +36,14 @@
 
 一局 5～15 分钟。
 
+## 成就与统计
+
+标题界面会记住你的累计局数、破砖总数与成就进度。五个成就：击碎核心、连击 25、一击 12 块、下潜 15 层、千砖。全部本地存档，不上传任何数据。
+
+## 装到手机
+
+用手机浏览器打开站点，菜单里可以「添加到主屏幕」—— 带 manifest 与图标，启动后是全屏横屏，没有地址栏。触摸是**相对拖动**：手指在屏幕任意位置滑动即可，不会挡住挡板。
+
 ## 本地运行
 
 ```bash
@@ -71,6 +79,14 @@ Breaking bricks charges the meter. At full, `SHIFT` fires a prism burst: every b
 - Every 5th floor spawns a golden core prism guarded by three shield plates — the core is immune until they are gone.
 - Clear floor 10 for the ending, then continue into endless mode.
 - 21 upgrades, three at a time: extra balls, wider paddle, pierce, blast, auto-lasers, crits, shields, cushion, seeker, fork, resonance amp — plus three **risk** cards that trade safety for damage.
+
+## Stats and achievements
+
+The title screen tracks lifetime runs, bricks broken and five achievements (clear the core, a 25 combo, a 12-brick burst, floor 15, a thousand bricks). Everything stays in `localStorage` — nothing is uploaded.
+
+## On a phone
+
+Open the site on a mobile browser and add it to the home screen: the web app manifest plus icons give a full-screen landscape launch with no address bar. Touch control is **relative dragging** — slide anywhere on the screen and the paddle follows, so your thumb never covers it.
 
 ## Controls
 
