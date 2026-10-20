@@ -2917,9 +2917,11 @@ function drawMenu() {
   G.langRect = { x: lgx, y: lby, w: lbw, h: lbh };
 
   if (prismInstallPrompt) {
-    const iw = 150, ih = 34;
-    const ix = W / 2 - iw / 2;
-    const iy = lby - 46;
+    // top-right corner: the title block owns the middle and the mode buttons own
+    // the bottom, so this is the only place a chip cannot cover anything
+    const iw = 152, ih = 34;
+    const ix = W - 24 - iw;
+    const iy = 22;
     G.installRect = { x: ix, y: iy, w: iw, h: ih };
     ctx.fillStyle = 'rgba(84,242,255,0.14)';
     roundedRect(ctx, ix, iy, iw, ih, 10);
