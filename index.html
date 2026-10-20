@@ -374,7 +374,8 @@ const I18N = {
     chain: '染光连锁', fusion: '合 光', slowmo: '减速', history: '历史', saveImage: '存图',
  blitz: '疾速 60s', timeUp: '时间到', blitzBest: '疾速最高',
  twinHalf: '孪生 1/2 —— 快打另一块', twinDone: '孪生破碎',
- coreMode: '核心', ringWord: (n) => '第 ' + n + ' 环', coreClear: '环已清', core: '核心', fusionReady: '合光 F', fusionCool: '合光',
+ coreMode: '核心', ringWord: (n) => '第 ' + n + ' 环', coreClear: '环已清', core: '核心',
+ pulse: '脉冲', chargeWord: '充能', fusionReady: '合光 F', fusionCool: '合光',
     rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
     odWaste: (n) => '只剩 ' + n + ' 块砖，超载留着', odCarry: '清层返还 30% 充能',
     floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
@@ -407,7 +408,8 @@ const I18N = {
     chain: 'LIT CHAIN', fusion: 'FUSION', slowmo: 'SLOW-MO', history: 'HISTORY', saveImage: 'IMAGE',
  blitz: 'BLITZ 60s', timeUp: "TIME'S UP", blitzBest: 'BLITZ BEST',
  twinHalf: 'TWIN 1/2 — break its pair', twinDone: 'TWIN BROKEN',
- coreMode: 'CORE', ringWord: (n) => 'RING ' + n, coreClear: 'RING CLEAR', core: 'CORE', fusionReady: 'FUSION F', fusionCool: 'FUSION',
+ coreMode: 'CORE', ringWord: (n) => 'RING ' + n, coreClear: 'RING CLEAR', core: 'CORE',
+ pulse: 'PULSE', chargeWord: 'CHARGE', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
     odWaste: (n) => n + ' bricks left — save it', odCarry: 'floor clear refunds 30%',
     floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
@@ -1337,7 +1339,8 @@ function onPointerDown(clientX, clientY) {
   Sound.resume();
   const p = toLogic(clientX, clientY);
   if (CORE.active) {
-    if (CORE.over) startCore();
+    if (CORE.over) { startCore(); return; }
+    corePulse();
     return;
   }
   pointerMove(clientX, clientY);
@@ -3574,6 +3577,11 @@ window.addEventListener('keydown', (e) => {
     else if (G.state === 'paused') G.state = 'playing';
     return;
   }
+  if (e.key === ' ' && CORE.active) {
+    e.preventDefault();
+    corePulse();
+    return;
+  }
   if (e.key === 'Escape' && CORE.active) {
     CORE.active = false;
     Music.stop();
@@ -3650,7 +3658,15 @@ const CORE = {
   clearT: 0,
   best: 0,
   shieldHitGlow: 0,
+  charge: 0,
+  chargeMax: 8,
+  shieldBoost: 0,
+  slowT: 0,
 };
+
+function coreShieldW() {
+  return CORE.shieldW * (CORE.shieldBoost > 0 ? 1.62 : 1);
+}
 
 function coreNormA(a) {
   while (a > Math.PI) a -= TAU;
@@ -3702,7 +3718,15 @@ function coreBuild(level) {
       if (level >= 3 && (i * 5 + ri * 7 + level) % 17 === 0) continue;
       const a = (i / ring.n) * TAU + ri * 0.16 + spinOffset;
       const baseHp = 1 + (ri >= 1 ? 1 : 0) + (level >= 4 ? 1 : 0);
+      let kind = 'plain';
+      if (level >= 2) {
+        const roll = (i * 7 + ri * 11 + level * 5) % 19;
+        if (roll === 3) kind = 'split';
+        else if (roll === 8) kind = 'slow';
+        else if (roll === 14) kind = 'wide';
+      }
       CORE.bricks.push({
+        kind,
         ring: ri,
         r0: ring.r0,
         r1: ring.r1,
@@ -3749,6 +3773,9 @@ function coreReset(hard) {
   CORE.shake = 0;
   CORE.flash = 0;
   CORE.combo = 0;
+  CORE.charge = 0;
+  CORE.shieldBoost = 0;
+  CORE.slowT = 0;
   coreBuild(CORE.level);
   coreSpawnBall();
 }
@@ -3761,6 +3788,20 @@ function startCore() {
   Music.start();
   coreReset(true);
   CORE.shieldA = -Math.PI / 2;
+}
+
+function corePulse() {
+  if (CORE.over || CORE.charge < CORE.chargeMax) return;
+  CORE.charge = 0;
+  CORE.shieldBoost = 4.5;
+  CORE.flash = 0.55;
+  CORE.shake = 15;
+  Sound.overdrive();
+  haptic(45);
+  const alive = CORE.bricks.filter((x) => x.alive);
+  for (const bw of alive) coreHitBrick(bw);
+  coreBurst(CORE.cx, CORE.cy, 40, '#ffd166', 320);
+  coreFloat(CORE.cx, CORE.cy - CORE.coreR - 30, t('pulse'), '#ffd166');
 }
 
 function coreHitBrick(bw, ux, uy) {
@@ -3776,6 +3817,24 @@ function coreHitBrick(bw, ux, uy) {
     return;
   }
   bw.alive = false;
+  const midR = (bw.r0 + bw.r1) / 2;
+  if (bw.kind === 'split' && CORE.balls.length < 3) {
+    const sp2 = 370 + CORE.level * 20;
+    CORE.balls.push({
+      x: CORE.cx + Math.cos(bw.a) * (CORE.coreR + 18),
+      y: CORE.cy + Math.sin(bw.a) * (CORE.coreR + 18),
+      vx: Math.cos(bw.a) * sp2,
+      vy: Math.sin(bw.a) * sp2,
+      r: 7, trail: [], dead: false, idle: 0,
+    });
+    coreFloat(mx2, my2, '+1', '#7dffb0');
+  } else if (bw.kind === 'slow') {
+    CORE.slowT = Math.max(CORE.slowT, 4);
+    coreFloat(mx2, my2, t('slowmo'), '#b07bff');
+  } else if (bw.kind === 'wide') {
+    CORE.shieldBoost = Math.max(CORE.shieldBoost, 6);
+    coreFloat(mx2, my2, '+盾', '#54f2ff');
+  }
   const gain = Math.round(14 + bw.maxHp * 9 + CORE.combo * 4 + CORE.level * 3);
   CORE.score += gain;
   CORE.shake = Math.min(CORE.shake + 2.6, 12);
@@ -3856,13 +3915,22 @@ function coreBallStep(b) {
     return;
   }
 
-  // the core reflects
+  // the core reflects — and charges
   if (d < CORE.coreR + b.r) {
     const dot = b.vx * ux + b.vy * uy;
     b.vx -= 2 * dot * ux;
     b.vy -= 2 * dot * uy;
     b.x = CORE.cx + ux * (CORE.coreR + b.r + 1);
     b.y = CORE.cy + uy * (CORE.coreR + b.r + 1);
+    b.idle = 0;
+    if (CORE.charge < CORE.chargeMax) {
+      CORE.charge += 1;
+      coreBurst(CORE.cx + ux * CORE.coreR, CORE.cy + uy * CORE.coreR, 5, '#54f2ff', 130);
+      if (CORE.charge >= CORE.chargeMax) {
+        Sound.resonance();
+        coreFloat(CORE.cx, CORE.cy - CORE.coreR - 30, t('pulse') + '!', '#ffd166');
+      }
+    }
     Sound.wall();
     return;
   }
@@ -3887,6 +3955,8 @@ function updateCore(dt) {
   if (CORE.shake > 0) CORE.shake = Math.max(0, CORE.shake - dt * 30);
   if (CORE.flash > 0) CORE.flash = Math.max(0, CORE.flash - dt * 2.2);
   if (CORE.shieldHitGlow > 0) CORE.shieldHitGlow = Math.max(0, CORE.shieldHitGlow - dt * 3.4);
+  if (CORE.shieldBoost > 0) CORE.shieldBoost = Math.max(0, CORE.shieldBoost - dt);
+  if (CORE.slowT > 0) CORE.slowT = Math.max(0, CORE.slowT - dt);
   if (CORE.comboT > 0) {
     CORE.comboT -= dt;
     if (CORE.comboT <= 0) CORE.combo = 0;
@@ -3941,9 +4011,10 @@ function updateCore(dt) {
       coreNudge(b);
       b.idle = 0;
     }
+    const spd = CORE.slowT > 0 ? 0.66 : 1;
     for (let s = 0; s < steps && !b.dead; s++) {
-      b.x += (b.vx * dt) / steps;
-      b.y += (b.vy * dt) / steps;
+      b.x += (b.vx * dt * spd) / steps;
+      b.y += (b.vy * dt * spd) / steps;
       coreBallStep(b);
     }
     b.trail.push({ x: b.x, y: b.y });
@@ -4020,6 +4091,24 @@ function renderCore() {
     ctx.strokeStyle = bw.flash > 0 ? '#ffffff' : 'rgba(255,255,255,0.28)';
     ctx.stroke();
 
+    if (bw.kind && bw.kind !== 'plain') {
+      const gx = CORE.cx + Math.cos(bw.a) * mid;
+      const gy = CORE.cy + Math.sin(bw.a) * mid;
+      ctx.fillStyle = 'rgba(8,12,20,0.8)';
+      ctx.beginPath();
+      ctx.arc(gx, gy, 7.5, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#eafcff';
+      if (bw.kind === 'split') {
+        ctx.beginPath(); ctx.arc(gx - 2.6, gy, 2.1, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(gx + 2.6, gy, 2.1, 0, TAU); ctx.fill();
+      } else if (bw.kind === 'slow') {
+        for (let k = -1; k <= 1; k++) ctx.fillRect(gx - 4, gy + k * 3 - 0.8, 8, 1.6);
+      } else {
+        ctx.fillRect(gx - 5, gy - 1.5, 10, 3);
+      }
+    }
+
     if (bw.maxHp > 1) {
       const px3 = CORE.cx + Math.cos(bw.a) * mid;
       const py3 = CORE.cy + Math.sin(bw.a) * mid;
@@ -4050,9 +4139,20 @@ function renderCore() {
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
+  // charge ring around the core
+  if (CORE.charge > 0) {
+    const frac = CORE.charge / CORE.chargeMax;
+    ctx.beginPath();
+    ctx.arc(CORE.cx, CORE.cy, CORE.coreR + 11, -Math.PI / 2, -Math.PI / 2 + TAU * frac);
+    ctx.lineWidth = 4.5;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = frac >= 1 ? '#ffd166' : 'rgba(255,209,102,0.7)';
+    ctx.stroke();
+  }
+
   // shield arc
   const sa = CORE.shieldA;
-  const sw = CORE.shieldW / 2;
+  const sw = coreShieldW() / 2;
   ctx.beginPath();
   ctx.arc(CORE.cx, CORE.cy, CORE.shieldR, sa - sw, sa + sw);
   ctx.lineWidth = 13;
@@ -4133,13 +4233,19 @@ function renderCore() {
     ctx.fill();
   }
 
-  ctx.textAlign = 'center';
+  ctx.textAlign = 'left';
   ctx.font = '700 13px ' + FONT;
   ctx.fillStyle = 'rgba(160,180,210,0.85)';
-  ctx.fillText(t('coreMode'), W / 2, 30);
-  ctx.font = '800 26px ' + FONT;
+  ctx.fillText(t('coreMode'), 24, 112);
+  ctx.font = '800 22px ' + FONT;
   ctx.fillStyle = '#ff4fd8';
-  ctx.fillText(t('ringWord', CORE.level), W / 2, 58);
+  ctx.fillText(t('ringWord', CORE.level), 24, 138);
+
+  if (CORE.charge > 0 && CORE.charge < CORE.chargeMax) {
+    ctx.font = '700 11px ' + FONT;
+    ctx.fillStyle = 'rgba(255,209,102,0.85)';
+    ctx.fillText(t('chargeWord') + ' ' + CORE.charge + '/' + CORE.chargeMax, 24, 162);
+  }
 
   ctx.textAlign = 'right';
   ctx.font = '700 13px ' + FONT;
@@ -4148,6 +4254,15 @@ function renderCore() {
   ctx.font = '800 26px ' + FONT;
   ctx.fillStyle = '#54f2ff';
   ctx.fillText(String(CORE.best).padStart(5, '0'), W - 24, 58);
+
+  if (CORE.charge >= CORE.chargeMax && !CORE.over) {
+    ctx.textAlign = 'center';
+    ctx.font = '800 15px ' + FONT;
+    ctx.globalAlpha = 0.55 + Math.sin(CORE.time * 5) * 0.4;
+    ctx.fillStyle = '#ffd166';
+    ctx.fillText(t('pulse') + ' — ' + (LANG === 'zh' ? '点击 / 空格' : 'tap / space'), W / 2, H - 24);
+    ctx.globalAlpha = 1;
+  }
 
   if (CORE.combo > 1) {
     ctx.textAlign = 'right';
@@ -4211,6 +4326,9 @@ window.__prism = {
   saveImage: () => saveReportImage(),
   core: CORE,
   startCore: () => startCore(),
+  coreReset: (hard) => coreReset(hard),
+  coreHit: (bw) => coreHitBrick(bw),
+  corePulse: () => corePulse(),
   applyMod: (id) => { G.mod = id ? MODIFIERS.find((m) => m.id === id) || null : null; },
 };
 })();

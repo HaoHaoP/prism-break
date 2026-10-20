@@ -22,6 +22,8 @@
 - 盾没赶上的角度，球就出界，扣一条命
 - 清空所有环进入下一环，砖块血量随层数上涨
 - 三圈、48 块砖、每块砖带一个血量数字，球速随层数提升
+- **核心是电池**：球每次撞到中心核心都在充能（核心外面那圈金色进度就是它）。充满 8 格后点一下屏幕（或空格）释放**脉冲**——全场砖块掉一格血，盾同时加宽 62% 持续 4.5 秒。所以「让球多绕核心」不是白绕
+- 环上有三种怪砖：**分裂**（多一颗球）、**减速**（球速降到 66%，给你喘息）、**扩盾**（盾变宽 6 秒）
 
 几何一换，所有肌肉记忆都失效：你不再预测球的落点，而是在**追角度**。`ESC` 回菜单。
 
@@ -197,6 +199,8 @@ No paddle, no wall. Bricks sit on **three concentric rings** around a glowing co
 - Where the ball lands on the arc sets its return line: dead centre bounces it straight back radially, off-centre adds a tangential kick — that is the whole skill of the mode
 - Any angle the shield misses is a ball lost and a life gone
 - Clear every ring to advance; brick health climbs with the ring count
+- **The core is a battery**: every bounce off the centre charges it (the gold ring outside the core). At eight charges, tap or press space to fire a **pulse** — every brick on the board loses a point of health and the shield widens 62% for 4.5s. Circling the core is no longer wasted travel
+- Three brick types sit on the rings: **split** (spawns another ball), **slow** (drops the ball to 66% speed) and **wide** (shield +62% for 6s)
 - `ESC` returns to the menu
 
 Different geometry means none of your muscle memory transfers: you are not predicting a landing point any more, you are chasing an angle.
