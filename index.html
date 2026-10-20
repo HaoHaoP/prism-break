@@ -412,6 +412,7 @@ const I18N = {
  coreMode: '核心', ringWord: (n) => '第 ' + n + ' 环', coreClear: '环已清', core: '核心',
  pulse: '脉冲', chargeWord: '充能', stackedFloor: '双层规则', bossWord: '吞噬者', bossWeak: '打弱点', quitRun: '退出本局',
  installApp: '安装到桌面', installHint: '请用 Chrome 右上角 ⋮ 菜单', installHint2: '→ 安装应用 / 添加到主屏幕',
+ tapResume: '点击任意处继续', coreScoreLine: '本局得分 ',
  bossFlawless: '无伤通环', achWord: '成就', coreStatsWord: '接球', streakWord: '连击', fusionReady: '合光 F', fusionCool: '合光',
     rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
     odWaste: (n) => '只剩 ' + n + ' 块砖，超载留着', odCarry: '清层返还 30% 充能',
@@ -448,6 +449,7 @@ const I18N = {
  coreMode: 'CORE', ringWord: (n) => 'RING ' + n, coreClear: 'RING CLEAR', core: 'CORE',
  pulse: 'PULSE', chargeWord: 'CHARGE', stackedFloor: 'TWO MODIFIERS', bossWord: 'DEVOURER', bossWeak: 'HIT THE GLOWING NODE', quitRun: 'QUIT RUN',
  installApp: 'INSTALL APP', installHint: 'Use the Chrome ⋮ menu', installHint2: '→ Install app / Add to Home screen',
+ tapResume: 'tap anywhere to resume', coreScoreLine: 'SCORE ', 
  bossFlawless: 'FLAWLESS RING', achWord: 'ACH', coreStatsWord: 'CATCHES', streakWord: 'STREAK', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
     odWaste: (n) => n + ' bricks left — save it', odCarry: 'floor clear refunds 30%',
@@ -1381,6 +1383,17 @@ function onPointerDown(clientX, clientY) {
   Sound.resume();
   const p = toLogic(clientX, clientY);
   if (CORE.active) {
+    if (CORE.paused && !CORE.over) {
+      if (pointInRect(p, CORE.quitRect)) {
+        CORE.active = false;
+        CORE.paused = false;
+        Music.stop();
+        G.state = 'menu';
+        return;
+      }
+      CORE.paused = false;
+      return;
+    }
     if (pointInRect(p, CORE.muteRect)) {
       Sound.on = !Sound.on;
       if (!Sound.on) Music.stop();
@@ -1388,13 +1401,6 @@ function onPointerDown(clientX, clientY) {
     }
     if (pointInRect(p, CORE.pauseRect) && !CORE.over) {
       CORE.paused = !CORE.paused;
-      return;
-    }
-    if (pointInRect(p, CORE.exitRect)) {
-      CORE.active = false;
-      CORE.paused = false;
-      Music.stop();
-      G.state = 'menu';
       return;
     }
     if (CORE.over) { startCore(); return; }
@@ -2610,10 +2616,10 @@ function drawHud() {
   ctx.textAlign = 'right';
   ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(160,180,210,0.85)';
-  ctx.fillText(t('best'), W - 20, 30);
+  ctx.fillText(t('best'), W - 20, 24);
   ctx.font = '700 26px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#54f2ff';
-  ctx.fillText(String(Math.max(G.best, G.score)).padStart(5, '0'), W - 20, 54);
+  ctx.fillText(String(Math.max(G.best, G.score)).padStart(5, '0'), W - 20, 46);
 
   ctx.textAlign = 'center';
   ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
@@ -2694,7 +2700,7 @@ function drawHud() {
   // These were 34x24 logical, which is ~20x15 physical pixels on a landscape phone:
   // far below the ~40px a fingertip can hit, so taps landed as paddle drags.
   const chW = 62, chH = 52;
-  const pauseX = W - 24 - chW, muteX = pauseX - chW - 9, chY = 56;
+  const pauseX = W - 24 - chW, muteX = pauseX - chW - 9, chY = 70;
   // hit boxes are padded past the drawn chip: the drawn size is capped by the HUD
   // above and the brick field below, but a finger still needs ~44px to land
   G.pauseRect = { x: pauseX - 7, y: chY - 5, w: chW + 14, h: chH + 11 };
@@ -3551,19 +3557,19 @@ function drawPaused() {
   ctx.fillText(t('resume'), W / 2, H / 2 + 34);
 
   // phones have no Escape: give the pause screen a way out
-  const qw = 190, qh = 48;
+  const qw = 240, qh = 76;
   const qx = (W - qw) / 2, qy = H / 2 + 132;
-  G.quitRect = { x: qx, y: qy, w: qw, h: qh };
-  ctx.fillStyle = 'rgba(20,26,40,0.85)';
-  roundedRect(ctx, qx, qy, qw, qh, 12);
+  G.quitRect = { x: qx - 8, y: qy - 8, w: qw + 16, h: qh + 16 };
+  ctx.fillStyle = 'rgba(20,26,40,0.9)';
+  roundedRect(ctx, qx, qy, qw, qh, 16);
   ctx.fill();
   ctx.strokeStyle = 'rgba(255,79,109,0.65)';
   ctx.lineWidth = 1.6;
-  roundedRect(ctx, qx, qy, qw, qh, 12);
+  roundedRect(ctx, qx, qy, qw, qh, 16);
   ctx.stroke();
-  ctx.font = '800 15px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.font = '800 17px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(255,120,140,0.95)';
-  ctx.fillText(t('quitRun'), W / 2, qy + 30);
+  ctx.fillText(t('quitRun'), W / 2, qy + 46);
 
   const taken = CARDS.filter((c) => (G.upg.counts[c.id] || 0) > 0);
   if (taken.length) {
@@ -3818,9 +3824,20 @@ window.addEventListener('keyup', (e) => {
   if (G.keys) G.keys[e.key] = false;
 });
 
-window.addEventListener('blur', () => {
+/* Losing focus has to stop both games. Phones often fire visibilitychange without
+   blur (switching apps), so listen for both. */
+let pausedByBlur = false;
+function pauseOnFocusLoss() {
   G.keys = {};
-  if (G.state === 'playing') G.state = 'paused';
+  if (G.state === 'playing') { G.state = 'paused'; pausedByBlur = true; }
+  if (typeof CORE !== 'undefined' && CORE.active && !CORE.over && !CORE.paused) {
+    CORE.paused = true;
+    pausedByBlur = true;
+  }
+}
+window.addEventListener('blur', pauseOnFocusLoss);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pauseOnFocusLoss();
 });
 
 /* ============================= CORE mode =============================
@@ -3865,6 +3882,7 @@ const CORE = {
   exitRect: null,
   muteRect: null,
   pauseRect: null,
+  quitRect: null,
   paused: false,
   achToast: null,
   achToastT: 0,
@@ -4436,6 +4454,42 @@ function updateCore(dt) {
   }
 }
 
+/* CORE used to freeze silently on pause, which left no way to leave the run and no
+   clue that anything had happened. Same panel as the main mode now. */
+function drawCorePaused() {
+  // FONT is a per-function constant elsewhere, so name this one locally
+  const F = 'ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.fillStyle = 'rgba(4,5,12,0.86)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = 'center';
+  ctx.font = '900 42px ' + F;
+  ctx.fillStyle = 'rgba(240,248,255,0.96)';
+  ctx.fillText(t('paused'), W / 2, H / 2 - 46);
+
+  ctx.font = '700 14px ' + F;
+  ctx.fillStyle = 'rgba(150,175,205,0.9)';
+  ctx.fillText(t('tapResume'), W / 2, H / 2 - 8);
+
+  ctx.font = '800 15px ' + F;
+  ctx.fillStyle = 'rgba(190,248,255,0.92)';
+  ctx.fillText(t('coreScoreLine') + CORE.score, W / 2, H / 2 + 24);
+
+  const qw = 240, qh = 76;
+  const qx = (W - qw) / 2, qy = H / 2 + 50;
+  CORE.quitRect = { x: qx - 8, y: qy - 8, w: qw + 16, h: qh + 16 };
+  ctx.fillStyle = 'rgba(20,26,40,0.85)';
+  roundedRect(ctx, qx, qy, qw, qh, 12);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,79,109,0.7)';
+  ctx.lineWidth = 1.8;
+  roundedRect(ctx, qx, qy, qw, qh, 12);
+  ctx.stroke();
+  ctx.font = '800 17px ' + F;
+  ctx.fillStyle = 'rgba(255,120,140,0.98)';
+  ctx.fillText(t('quitRun'), W / 2, qy + 46);
+}
+
 function renderCore() {
   const bg = ctx.createRadialGradient(CORE.cx, CORE.cy, 30, CORE.cx, CORE.cy, CORE.R + 80);
   bg.addColorStop(0, '#0a1322');
@@ -4706,31 +4760,33 @@ function renderCore() {
     ctx.fillText(t('chargeWord') + ' ' + CORE.charge + '/' + CORE.chargeMax, 24, 162);
   }
 
-  // chips: mute / pause / back, sized for a thumb on a phone
-  const chipS = 74;
+  // chips: mute / pause / back — same geometry as the main mode, and pushed down
+  // so the best-score readout above has room
+  const chipS = 62;
+  const chipH = 52;
   const chipGap = 9;
-  const chipY = 62;
+  const chipY = 70;
   const cx3 = W - 24 - chipS;
   const cx2 = cx3 - chipS - chipGap;
   const cx1 = cx2 - chipS - chipGap;
-  CORE.muteRect = { x: cx1, y: chipY, w: chipS, h: chipS };
-  CORE.pauseRect = { x: cx2, y: chipY, w: chipS, h: chipS };
-  CORE.exitRect = { x: cx3, y: chipY, w: chipS, h: chipS };
-  for (const cr of [CORE.muteRect, CORE.pauseRect, CORE.exitRect]) {
+  CORE.muteRect = { x: cx2 - 7, y: chipY - 5, w: chipS + 14, h: chipH + 11 };
+  CORE.pauseRect = { x: cx3 - 7, y: chipY - 5, w: chipS + 14, h: chipH + 11 };
+  CORE.exitRect = null;
+  for (const cr of [CORE.muteRect, CORE.pauseRect]) {
     ctx.fillStyle = 'rgba(12,20,32,0.72)';
-    roundedRect(ctx, cr.x, cr.y, chipS, chipS, 14);
+    roundedRect(ctx, cr.x + 7, cr.y + 5, chipS, chipH, 14);
     ctx.fill();
     ctx.strokeStyle = 'rgba(140,170,205,0.42)';
     ctx.lineWidth = 1.5;
-    roundedRect(ctx, cr.x, cr.y, chipS, chipS, 14);
+    roundedRect(ctx, cr.x + 7, cr.y + 5, chipS, chipH, 14);
     ctx.stroke();
   }
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
   // speaker
-  let icx = CORE.muteRect.x + chipS / 2;
-  let icy = CORE.muteRect.y + chipS / 2;
+  let icx = CORE.muteRect.x + 7 + chipS / 2;
+  let icy = CORE.muteRect.y + 5 + chipH / 2;
   ctx.strokeStyle = Sound.on ? 'rgba(205,225,245,0.95)' : 'rgba(255,120,140,0.95)';
   ctx.lineWidth = 2.6;
   ctx.beginPath();
@@ -4752,8 +4808,8 @@ function renderCore() {
   }
 
   // pause / play
-  icx = CORE.pauseRect.x + chipS / 2;
-  icy = CORE.pauseRect.y + chipS / 2;
+  icx = CORE.pauseRect.x + 7 + chipS / 2;
+  icy = CORE.pauseRect.y + 5 + chipH / 2;
   if (CORE.paused) {
     ctx.fillStyle = 'rgba(205,225,245,0.95)';
     ctx.beginPath();
@@ -4773,25 +4829,15 @@ function renderCore() {
     ctx.stroke();
   }
 
-  // back
-  icx = CORE.exitRect.x + chipS / 2;
-  icy = CORE.exitRect.y + chipS / 2;
-  ctx.strokeStyle = 'rgba(205,225,245,0.95)';
-  ctx.lineWidth = 3.2;
-  ctx.beginPath();
-  ctx.moveTo(icx - 9, icy - 9);
-  ctx.lineTo(icx + 9, icy + 9);
-  ctx.moveTo(icx + 9, icy - 9);
-  ctx.lineTo(icx - 9, icy + 9);
-  ctx.stroke();
+
 
   ctx.textAlign = 'right';
   ctx.font = '700 13px ' + FONT;
   ctx.fillStyle = 'rgba(160,180,210,0.85)';
-  ctx.fillText(t('best'), W - 24, 30);
+  ctx.fillText(t('best'), W - 24, 24);
   ctx.font = '800 26px ' + FONT;
   ctx.fillStyle = '#54f2ff';
-  ctx.fillText(String(CORE.best).padStart(5, '0'), W - 24, 58);
+  ctx.fillText(String(CORE.best).padStart(5, '0'), W - 24, 50);
 
   if (CORE.boss) {
     const bw2 = 260;
@@ -4891,6 +4937,9 @@ function renderCore() {
     ctx.fillText(t('again'), W / 2, H / 2 + 116);
     ctx.globalAlpha = 1;
   }
+
+  if (CORE.paused && !CORE.over) drawCorePaused();
+  else CORE.quitRect = null;
 }
 
 /* ----------------------------- boot ---------------------------- */
@@ -4931,6 +4980,8 @@ window.__prism = {
   corePulse: () => corePulse(),
   coreAchievements: CORE_ACH,
   checkCoreAch: () => checkCoreAch(),
+  renderCore: () => renderCore(),
+  drawCorePaused: () => drawCorePaused(),
   coreSaveStats: () => coreSaveStats(),
   applyMod: (id) => { G.mods = id ? [MODIFIERS.find((m) => m.id === id)].filter(Boolean) : []; },
 };
