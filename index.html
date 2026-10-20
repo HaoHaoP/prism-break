@@ -1876,17 +1876,35 @@ function drawMenu() {
       LANG === 'zh'
         ? '局数 ' + G.stats.runs + ' · 破砖 ' + G.stats.bricks + ' · 成就 ' + achCount + '/' + ACHIEVEMENTS.length
         : 'RUNS ' + G.stats.runs + ' · BRICKS ' + G.stats.bricks + ' · ACH ' + achCount + '/' + ACHIEVEMENTS.length,
-      W / 2, 520);
+      W / 2, 514);
+
+    // achievement badges
+    const bw2 = 14, gap2 = 8;
+    const totalW2 = ACHIEVEMENTS.length * bw2 + (ACHIEVEMENTS.length - 1) * gap2;
+    let bx2 = W / 2 - totalW2 / 2;
+    for (const a of ACHIEVEMENTS) {
+      const got = !!(G.achs && G.achs[a.id]);
+      ctx.fillStyle = got ? '#ffd166' : 'rgba(120,140,175,0.16)';
+      roundedRect(ctx, bx2, 530, bw2, bw2, 3);
+      ctx.fill();
+      if (!got) {
+        ctx.strokeStyle = 'rgba(120,140,175,0.35)';
+        ctx.lineWidth = 1;
+        roundedRect(ctx, bx2 + 0.5, 530.5, bw2 - 1, bw2 - 1, 3);
+        ctx.stroke();
+      }
+      bx2 += bw2 + gap2;
+    }
   }
 
   if (G.best > 0) {
     ctx.font = '600 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(160,180,210,0.7)';
-    ctx.fillText(t('bestLine', G.best, G.bestFloor || 0), W / 2, 542);
+    ctx.fillText(t('bestLine', G.best, G.bestFloor || 0), W / 2, 560);
   }
 
   // language toggle
-  const lbw = 104, lbh = 28, lbx = W / 2 - lbw / 2, lby = 566;
+  const lbw = 104, lbh = 28, lbx = W / 2 - lbw / 2, lby = 578;
   G.langRect = { x: lbx, y: lby, w: lbw, h: lbh };
   ctx.strokeStyle = 'rgba(140,160,190,0.45)';
   ctx.lineWidth = 1.2;

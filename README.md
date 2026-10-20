@@ -14,6 +14,19 @@
 
 另外每层都混着特殊的砖：会**再生**的、被击中会**翻转你的光色**的、破了会**炸开邻居**的、永远不会碎的钢柱，还有会**整行左右漂移**的砖墙。
 
+## 层规则
+
+从第 2 层起，大半的层会随机带一条**层规则**（HUD 左上角标注），当场改变打法：
+
+| 规则 | 效果 |
+| --- | --- |
+| 急流 | 球速 +15% |
+| 静滞 | 球速 −12% |
+| 致密 | 砖块 +1 血，得分 ×1.4 |
+| 贪婪 | 得分 ×1.6，球速 +8% |
+| 蜂群 | 砖块全 1 血，得分 ×1.2 |
+| 暗场 | 隐藏砖块血条 |
+
 | 按键 | 动作 |
 | --- | --- |
 | `Q` / `E` | 切换光色（也可点左下角色块） |
@@ -30,9 +43,9 @@
 ## 结构
 
 - **10 层**，每层图案不同、砖块血量递增，越深越有钢柱挡住你的舒适路线。
-- **每 5 层**出现金色核心棱镜，外面套着三片护盾；护盾不破，核心免疫。
+- **每 5 层**出现金色核心棱镜，外面套着三片护盾；护盾不破，核心免疫。它还会每隔几秒向下抛**干扰弹**，命中挡板会让挡板缩小 3 秒。
 - **打完第 10 层**触发结局，之后可继续进入无尽模式。
-- **21 张强化卡**，清层后三选一：多球、加宽、穿透、爆破、自动激光、暴击、护盾、缓冲、寻踪、分裂、共鸣增幅……以及三张**风险卡**（玻璃 / 狂战 / 易爆），换来高伤害但付出代价。
+- **25 张强化卡**，清层后三选一：多球、加宽、穿透、爆破、自动激光、暴击、护盾、缓冲、寻踪、分裂、共鸣增幅、电弧、吸血、专注、镜面……以及三张**风险卡**（玻璃 / 狂战 / 易爆），换来高伤害但付出代价。
 
 一局 5～15 分钟。
 
@@ -69,6 +82,10 @@ The ball carries one of three light tones — cyan, violet, amber — and every 
 
 Floors also mix in **regenerating** bricks, **prism cores** that flip your tone on contact, **bombs** that chain to neighbours, indestructible steel struts, and rows that **drift sideways**.
 
+## Floor modifiers
+
+From floor 2 on, most floors carry a random rule (shown top-left): **CURRENT** (ball speed +15%), **STILL** (−12%), **DENSE** (+1 hp, score ×1.4), **GREED** (score ×1.6, speed +8%), **SWARM** (all bricks 1 hp, score ×1.2) or **BLACKOUT** (brick health hidden).
+
 ## Overdrive
 
 Breaking bricks charges the meter. At full, `SHIFT` fires a prism burst: every brick takes a hit, the screen flashes, and time drops to a third speed so you can reposition.
@@ -76,9 +93,9 @@ Breaking bricks charges the meter. At full, `SHIFT` fires a prism burst: every b
 ## Structure
 
 - 10 floors, each with a generated layout, growing brick health and drifting rows.
-- Every 5th floor spawns a golden core prism guarded by three shield plates — the core is immune until they are gone.
+- Every 5th floor spawns a golden core prism guarded by three shield plates — the core is immune until they are gone, and it lobs **disruptor orbs** that shrink your paddle for three seconds.
 - Clear floor 10 for the ending, then continue into endless mode.
-- 21 upgrades, three at a time: extra balls, wider paddle, pierce, blast, auto-lasers, crits, shields, cushion, seeker, fork, resonance amp — plus three **risk** cards that trade safety for damage.
+- 25 upgrades, three at a time: extra balls, wider paddle, pierce, blast, auto-lasers, crits, shields, cushion, seeker, fork, resonance amp, arc, vampire, focus, mirror — plus three **risk** cards that trade safety for damage.
 
 ## Stats and achievements
 
