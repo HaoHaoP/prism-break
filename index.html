@@ -137,6 +137,36 @@ const Sound = {
     const base = [440, 392, 330][toneIdx % 3] || 440;   // cyan / violet / amber
     this.tone(base + hp * 55, 0.07, 'square', 0.045, base + hp * 55 + 180);
   },
+  /* every brick type has its own voice so a hit tells you what you struck */
+  hit(b) {
+    const base = [440, 392, 330][(b.tone + 3) % 3] || 440;
+    const hp = b.hp === Infinity ? 3 : (b.hp || 1);
+    if (!b.breakable) {
+      this.tone(150, 0.11, 'square', 0.05, 92);
+      this.tone(1100, 0.05, 'sine', 0.018, 700);
+      return;
+    }
+    switch (b.kind) {
+      case 'core':
+        this.tone(base * 2.1, 0.13, 'triangle', 0.05, base * 3.3);
+        break;
+      case 'regen':
+        this.tone(base * 0.75, 0.1, 'sine', 0.042, base * 1.05);
+        break;
+      case 'bomb':
+        this.tone(115, 0.15, 'sawtooth', 0.06, 55);
+        break;
+      default:
+        this.brick(Math.min(12, hp + Math.floor((G.combo || 0) / 4)), b.tone);
+    }
+  },
+  scar() { this.tone(1600, 0.06, 'sine', 0.022, 2600); },
+  floorClear() {
+    const root = 523.25;
+    [0, 4, 7, 12].forEach((semi, i) => {
+      setTimeout(() => this.tone(root * Math.pow(2, semi / 12), 0.22, 'triangle', 0.05), i * 55);
+    });
+  },
   break_() { this.tone(180, 0.16, 'sawtooth', 0.05, 60); },
   paddle() { this.tone(320, 0.08, 'triangle', 0.07, 460); },
   wall() { this.tone(240, 0.04, 'sine', 0.03); },
@@ -331,7 +361,7 @@ const I18N = {
     endless: '点击进入无尽模式',
     resonance: '共鸣', prismShift: '棱镜换色', regrow: '再生', fork: '分裂', vampireHeal: '吸血 +1 命',
     shielded: '护盾保护', crit: '暴击', enraged: '核心狂暴',
-    chain: '染光连锁', fusion: '合 光', fusionReady: '合光 F', fusionCool: '合光',
+    chain: '染光连锁', fusion: '合 光', slowmo: '减速', fusionReady: '合光 F', fusionCool: '合光',
     rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
     odWaste: (n) => '只剩 ' + n + ' 块砖，超载留着', odCarry: '清层返还 30% 充能',
     floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
@@ -361,7 +391,7 @@ const I18N = {
     endless: 'CLICK TO ENTER THE ENDLESS',
     resonance: 'RESONANCE', prismShift: 'PRISM SHIFT', regrow: 'REGROW', fork: 'FORK', vampireHeal: 'VAMPIRIC +1',
     shielded: 'SHIELDED', crit: 'CRIT', enraged: 'ENRAGED',
-    chain: 'LIT CHAIN', fusion: 'FUSION', fusionReady: 'FUSION F', fusionCool: 'FUSION',
+    chain: 'LIT CHAIN', fusion: 'FUSION', slowmo: 'SLOW-MO', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
     odWaste: (n) => n + ' bricks left — save it', odCarry: 'floor clear refunds 30%',
     floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
@@ -493,6 +523,7 @@ const G = {
   shockwaves: [],
   bolts: [],
   veins: [],
+  scarCD: 0,
   hazards: [],
   hazardTimer: 0,
   paddleDebuff: 0,
@@ -734,6 +765,8 @@ function buildLevel(level) {
         if (level >= 3 && roll === 4) kind = 'regen';
         else if (level >= 2 && roll === 9) kind = 'core';
         else if (level >= 3 && roll === 15) kind = 'bomb';
+        else if (level >= 4 && roll === 21) kind = 'mirror';   // sends the ball straight back
+        else if (level >= 5 && roll === 25) kind = 'clock';    // breaking it buys slow motion
       }
 
       const bx = startX + c * (cw + gap);
@@ -1100,7 +1133,7 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
   }
 
   if (b.hp > 0) {
-    Sound.brick(Math.min(12, b.hp + Math.floor((G.combo || 0) / 4)), b.tone);
+    Sound.hit(b);
     burst(fromX, fromY, 3, b.color, 90);
     return false;
   }
@@ -1152,6 +1185,11 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
 
   // bombs chain on their own; the blast upgrade makes everything a bomb
   if ((G.upg.blast || b.kind === 'bomb') && !chain) blastAt(b);
+  if (b.kind === 'clock' && !chain) {
+    G.slowTimer = Math.max(G.slowTimer, 0.9);
+    Sound.floorClear();
+    if (G.floaters.length < 9) floatText(b.x + b.w / 2, b.y - 16, t('slowmo'), '#ffd166');
+  }
 
   return true;
 }
@@ -1395,6 +1433,7 @@ function tryOverdrive() {
 function enterCardSelect() {
   G.state = 'cardselect';
   G.clearPending = 0;
+  Sound.floorClear();
   G.clearAt = 0;
   G.flash = 0;
   // a floor clear refunds part of the meter so a finisher is not a total loss
@@ -1503,6 +1542,12 @@ function updateBalls(dt) {
         if (killed) {
           // the brick shattered — carry on through the gap instead of bouncing
           continue;
+        } else if (br.kind === 'mirror') {
+          // a mirror sends the ball back the way it came
+          b.vx = -b.vx;
+          b.vy = -b.vy;
+          Sound.hit(br);
+          burst(br.x + br.w / 2, br.y + br.h / 2, 5, '#dfe9ff', 120);
         } else {
           const overlapX = (b.r + br.w / 2) - Math.abs(b.x - (br.x + br.w / 2));
           const overlapY = (b.r + br.h / 2) - Math.abs(b.y - (br.y + br.h / 2));
@@ -1755,6 +1800,7 @@ function updateCycle(dt) {
 }
 
 function updateVeins(dt) {
+  if (G.scarCD > 0) G.scarCD -= dt;
   for (let i = G.veins.length - 1; i >= 0; i--) {
     const v = G.veins[i];
     v.life -= dt;
@@ -1774,6 +1820,7 @@ function veinBoost(b) {
       b.vx *= mul;
       b.vy *= mul;
       v.life = Math.max(0, v.life - 2.2);
+      if (!G.scarCD || G.scarCD <= 0) { Sound.scar(); G.scarCD = 0.16; }
       burst(v.x, v.y, 3, TONES[v.tone] ? TONES[v.tone].hex : '#8fe9ff', 90);
     }
     return;
@@ -2028,6 +2075,30 @@ function drawBricks() {
       ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.arc(b.x + b.w / 2, b.y + b.h / 2, 8.5, 0, TAU);
+      ctx.stroke();
+    } else if (b.kind === 'mirror') {
+      // two diagonal streaks read as polished glass
+      ctx.strokeStyle = 'rgba(223,233,255,' + (0.5 + Math.abs(Math.sin(b.wobble * 2)) * 0.4) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(b.x + b.w * 0.22, b.y + b.h - 7);
+      ctx.lineTo(b.x + b.w * 0.44, b.y + 7);
+      ctx.moveTo(b.x + b.w * 0.56, b.y + b.h - 7);
+      ctx.lineTo(b.x + b.w * 0.78, b.y + 7);
+      ctx.stroke();
+    } else if (b.kind === 'clock') {
+      const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      ctx.strokeStyle = 'rgba(255,209,102,0.95)';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 8, 0, TAU);
+      ctx.stroke();
+      const ang = b.wobble * 1.4;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(ang) * 5, cy + Math.sin(ang) * 5);
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx, cy - 6);
       ctx.stroke();
     } else if (b.kind === 'core') {
       ctx.strokeStyle = 'rgba(255,255,255,0.92)';

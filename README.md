@@ -28,7 +28,7 @@
 
 场上有两颗以上球时按 `F`：所有球塌缩成一道竖直光束，从挡板一路扫上去，路径上的砖全部融化（冷却 12 秒）。代价是所有球都没了，只剩一颗重新发球 —— 多球既是火力也是安全网，用它来赌。
 
-另外每层都混着特殊的砖：会**再生**的、被击中会**翻转你的光色**的、破了会**炸开邻居**的、永远不会碎的钢柱，还有会**整行左右漂移**的砖墙。
+另外每层都混着特殊的砖：会**再生**的、被击中会**翻转你的光色**的、破了会**炸开邻居**的、永远不会碎的钢柱、会整行**左右漂移**的砖墙、把球**原路弹回**的镜面砖，以及打破就送 0.9 秒**慢动作**的时计砖。
 
 ## 层规则
 
@@ -129,7 +129,7 @@ Dropping the ball no longer costs a life immediately — the game freezes for 1.
 
 With two or more balls alive, press `F`: every ball collapses into a single vertical beam that sweeps up from the paddle and melts everything in its path (12s cooldown). You spend your whole board to do it and get one ball back — multi-ball is both your firepower and your safety net.
 
-Floors also mix in **regenerating** bricks, **prism cores** that flip your tone on contact, **bombs** that chain to neighbours, indestructible steel struts, and rows that **drift sideways**.
+Floors also mix in **regenerating** bricks, **prism cores** that flip your tone on contact, **bombs** that chain to neighbours, indestructible steel struts, rows that **drift sideways**, **mirror** bricks that send the ball straight back where it came from, and **clock** bricks that buy 0.9s of slow motion when they break.
 
 ## Floor modifiers
 
