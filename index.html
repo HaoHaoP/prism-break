@@ -123,7 +123,10 @@ const Sound = {
     osc.start(t);
     osc.stop(t + dur + 0.02);
   },
-  brick(hp) { this.tone(420 + hp * 90, 0.07, 'square', 0.045, 620 + hp * 90); },
+  brick(hp, toneIdx) {
+    const base = [440, 392, 330][toneIdx % 3] || 440;   // cyan / violet / amber
+    this.tone(base + hp * 55, 0.07, 'square', 0.045, base + hp * 55 + 180);
+  },
   break_() { this.tone(180, 0.16, 'sawtooth', 0.05, 60); },
   paddle() { this.tone(320, 0.08, 'triangle', 0.07, 460); },
   wall() { this.tone(240, 0.04, 'sine', 0.03); },
@@ -304,6 +307,7 @@ const I18N = {
     resonance: '共鸣', prismShift: '棱镜换色', regrow: '再生', fork: '分裂', vampireHeal: '吸血 +1 命',
     shielded: '护盾保护', crit: '暴击', enraged: '核心狂暴',
     chain: '染光连锁', fusion: '合 光', fusionReady: '合光 F', fusionCool: '合光',
+    rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
     floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
     tagOffense: '攻击', tagControl: '控制', tagDefense: '防御', tagRisk: '风险',
     langBtn: 'EN', daily: '每 日 挑 战', dailyBest: '今日最佳',
@@ -332,6 +336,7 @@ const I18N = {
     resonance: 'RESONANCE', prismShift: 'PRISM SHIFT', regrow: 'REGROW', fork: 'FORK', vampireHeal: 'VAMPIRIC +1',
     shielded: 'SHIELDED', crit: 'CRIT', enraged: 'ENRAGED',
     chain: 'LIT CHAIN', fusion: 'FUSION', fusionReady: 'FUSION F', fusionCool: 'FUSION',
+    rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
     floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
     tagOffense: 'OFFENSE', tagControl: 'CONTROL', tagDefense: 'DEFENSE', tagRisk: 'RISK',
     langBtn: '中文', daily: 'DAILY RUN', dailyBest: "TODAY'S BEST",
@@ -429,6 +434,9 @@ const ACHIEVEMENTS = [
   { id: 'burst',  zh: '一击 12 块', en: 'BURST 12',         hint: 'break 12 bricks with one overdrive', zhHint: '一次超载破 12 块砖' },
   { id: 'deep',   zh: '下潜 15 层', en: 'DEPTH 15',         hint: 'reach floor 15',      zhHint: '到达第 15 层' },
   { id: 'grinder', zh: '千砖',      en: 'BRICK GRINDER',    hint: 'break 1000 bricks total', zhHint: '累计破 1000 块砖' },
+  { id: 'rewinder', zh: '时光倒流', en: 'TIME BENDER',      hint: 'save yourself with a rewind', zhHint: '用倒带救回一球' },
+  { id: 'colorist', zh: '染光大师', en: 'COLOURIST',        hint: 'detonate a same-tone chain', zhHint: '触发一次染光连锁' },
+  { id: 'fusionist', zh: '合光者',  en: 'FUSIONIST',        hint: 'fire the fusion beam', zhHint: '释放一次合光' },
 ];
 
 const G = {
@@ -458,6 +466,9 @@ const G = {
   toneChain: 0,
   fusionCD: 0,
   fusionBeam: null,
+  rewinds: 2,
+  rewindT: 0,
+  history: [],
   fuseRect: null,
   odRect: null,
   pauseRect: null,
@@ -474,7 +485,8 @@ const G = {
   toneRects: [],
   langRect: null,
   dailyRect: null,
-  stats: { runs: 0, bricks: 0, overdrives: 0, wins: 0, burstBest: 0, comboBest: 0, depthBest: 0 },
+  stats: { runs: 0, bricks: 0, overdrives: 0, wins: 0, burstBest: 0, comboBest: 0, depthBest: 0,
+           rewindSaved: 0, chains: 0, fusions: 0 },
   achs: {},
   achToast: null,
   achToastT: 0,
@@ -579,6 +591,9 @@ function unlock(id) {
 
 function checkAchievements() {
   const s = G.stats;
+  if (s.rewindSaved > 0) unlock('rewinder');
+  if (s.chains > 0) unlock('colorist');
+  if (s.fusions > 0) unlock('fusionist');
   if (s.wins > 0) unlock('clear');
   if (s.comboBest >= 25) unlock('combo');
   if (s.burstBest >= 12) unlock('burst');
@@ -659,8 +674,8 @@ function buildLevel(level) {
   const cols = 9, cw = 78, ch = 32, gap = 7;
   const totalW = cols * cw + (cols - 1) * gap;
   const startX = (W - totalW) / 2;
-  const startY = 100;
-  const rows = clamp(4 + Math.floor((level - 1) / 2), 4, 7);
+  const startY = 112;
+  const rows = clamp(5 + Math.floor((level - 1) / 2), 5, 8);
   const pattern = (level - 1) % 9;
   const bricks = [];
   const sweepRow = level >= 4 ? rows - 1 : -1;
@@ -825,6 +840,10 @@ function startRun(daily) {
   G.flash = 0;
   G.upg = freshUpgrades();
   G.tone = 0;
+  G.remaps = 0;
+  G.rewinds = 2;
+  G.rewindT = 0;
+  G.history = [];
   G.charge = 0;
   G.slowTimer = 0;
   G.endless = false;
@@ -853,6 +872,8 @@ function beginLevel() {
   G.hazardTimer = 0;
   G.paddleDebuff = 0;
   G.layerBricks = 0;
+  G.history = [];
+  if (G.level > 1 && G.level % 5 === 1) G.rewinds = Math.min(3, (G.rewinds || 0) + 1);
   G.combo = 0;
   G.comboTimer = 0;
   G.paddle.w = paddleWidth();
@@ -997,6 +1018,8 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
       if (G.toneChain >= 3) {
         G.toneChain = 0;
         G.charge = Math.min(odMax(), G.charge + 12);
+        G.stats.chains = (G.stats.chains || 0) + 1;
+        checkAchievements();
         if (G.floaters.length < 9) floatText(W / 2, H * 0.36, t('chain'), TONES[b.tone].hex);
         Sound.resonance();
         haptic(22);
@@ -1037,7 +1060,7 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
   }
 
   if (b.hp > 0) {
-    Sound.brick(Math.min(12, b.hp + Math.floor((G.combo || 0) / 4)));
+    Sound.brick(Math.min(12, b.hp + Math.floor((G.combo || 0) / 4)), b.tone);
     burst(fromX, fromY, 3, b.color, 90);
     return false;
   }
@@ -1145,6 +1168,10 @@ function onPointerDown(clientX, clientY) {
       return;
     }
     startRun();
+    return;
+  }
+  if (G.state === 'rewindable') {
+    doRewind();
     return;
   }
   if (G.state === 'gameover') {
@@ -1266,6 +1293,8 @@ function odMax() { return G.upg.odMax || 100; }
 function tryFusion() {
   if (G.state !== 'playing' || G.fusionCD > 0 || G.balls.length < 2) return;
   G.fusionCD = 12;
+  G.stats.fusions = (G.stats.fusions || 0) + 1;
+  checkAchievements();
   G.balls.length = 0;
   G.fusionBeam = { x: G.paddle.x, t: 1.0, w: Math.max(96, G.paddle.w * 0.9), tick: 0 };
   G.flash = Math.max(G.flash, 0.5);
@@ -1423,10 +1452,8 @@ function updateBalls(dt) {
         }
 
         if (killed) {
-          // brick is gone: nudge out of the space and bounce on the dominant axis
-          const overlapX = (b.r + br.w / 2) - Math.abs(b.x - (br.x + br.w / 2));
-          const overlapY = (b.r + br.h / 2) - Math.abs(b.y - (br.y + br.h / 2));
-          if (overlapX < overlapY) b.vx = -b.vx; else b.vy = -b.vy;
+          // the brick shattered — carry on through the gap instead of bouncing
+          continue;
         } else {
           const overlapX = (b.r + br.w / 2) - Math.abs(b.x - (br.x + br.w / 2));
           const overlapY = (b.r + br.h / 2) - Math.abs(b.y - (br.y + br.h / 2));
@@ -1442,7 +1469,7 @@ function updateBalls(dt) {
       }
 
       // paddle
-      if (b.vy > 0 && b.y + b.r >= p.y && b.y - b.r <= p.y + p.h + 4) {
+      if (b.vy > 0 && b.y + b.r >= p.y && b.y + b.r <= p.y + p.h + b.r * 1.4) {
         if (b.x >= p.x - p.w / 2 - b.r && b.x <= p.x + p.w / 2 + b.r) {
           let rel = clamp((b.x - p.x) / (p.w / 2), -1, 1);
           if (Math.abs(rel) < 0.09) rel = (RNG() < 0.5 ? -0.09 : 0.09);
@@ -1544,22 +1571,15 @@ function updateBalls(dt) {
   }
 
   if (G.balls.length === 0 && !G.fusionBeam) {
-    G.lives -= 1;
-    G.shake = 12;
-    G.flash = 0.6;
-    Sound.lose();
-    if (G.lives <= 0) {
-      G.state = 'gameover';
-      G.tip = 0;
-      Music.stop();
-      G.deadAt = G.time;
-      haptic(60);
-      saveBest();
-      saveStats();
-      checkAchievements();
+    // a rewind charges lets you take that drop back
+    if (G.rewinds > 0 && G.state === 'playing' && G.history.length > 12) {
+      G.state = 'rewindable';
+      G.rewindT = 1.5;
+      G.shake = 8;
+      G.flash = 0.35;
+      Sound.tone(330, 0.25, 'triangle', 0.05, 220);
     } else {
-      G.combo = 0;
-      resetBalls();
+      loseLife();
     }
   }
 }
@@ -1597,6 +1617,66 @@ function updateHazards(dt) {
       G.paddle.w = paddleWidth();
     }
   }
+}
+
+function loseLife() {
+  G.lives -= 1;
+  G.shake = 12;
+  G.flash = 0.6;
+  Sound.lose();
+  haptic(60);
+  if (G.lives <= 0) {
+    G.state = 'gameover';
+    G.tip = 0;
+    Music.stop();
+    G.deadAt = G.time;
+    saveBest();
+    saveStats();
+    checkAchievements();
+  } else {
+    G.combo = 0;
+    resetBalls();
+  }
+}
+
+function pushHistory() {
+  if (G.state !== 'playing' || !G.balls.length) return;
+  G.history.push({
+    balls: G.balls.map((b) => ({
+      x: b.x, y: b.y, vx: b.vx, vy: b.vy, r: b.r,
+      stuck: b.stuck, pierces: b.pierces || 0, minion: !!b.minion, life: b.life || 0,
+    })),
+    paddleX: G.paddle.x,
+    combo: G.combo,
+  });
+  while (G.history.length > 95) G.history.shift();
+}
+
+function doRewind() {
+  if (G.state !== 'rewindable' || G.rewinds <= 0) return;
+  let snap = null;
+  for (let i = 0; i < G.history.length; i++) {
+    if (G.history[i] && G.history[i].balls.length) { snap = G.history[i]; break; }
+  }
+  if (!snap) return;
+  G.balls = snap.balls.map((b) => ({
+    x: b.x, y: b.y, vx: b.vx, vy: b.vy, r: b.r,
+    stuck: b.stuck, pierces: b.pierces, minion: b.minion, life: b.life || 0,
+    idle: 0, trail: [],
+  }));
+  G.paddle.x = snap.paddleX;
+  G.paddle.targetX = snap.paddleX;
+  G.combo = snap.combo;
+  G.history.length = 0;
+  G.rewinds -= 1;
+  G.stats.rewindSaved = (G.stats.rewindSaved || 0) + 1;
+  checkAchievements();
+  G.state = 'playing';
+  G.flash = 0.3;
+  G.shake = 6;
+  Sound.card();
+  haptic(22);
+  if (G.floaters.length < 9) floatText(W / 2, H * 0.4, t('rewind'), '#7dffb0');
 }
 
 function updateBolts(dt) {
@@ -1703,6 +1783,13 @@ function update(dt) {
     }
     if (G.state === 'playing' && bricksLeft() === 0) {
       enterCardSelect();
+    }
+    if (G.state === 'playing') pushHistory();
+  } else if (G.state === 'rewindable') {
+    G.rewindT -= dt;
+    if (G.rewindT <= 0) {
+      G.state = 'playing';
+      loseLife();
     }
   } else if (G.state === 'cardselect') {
     updatePaddle(dt);
@@ -2035,6 +2122,14 @@ function drawHud() {
     ctx.font = '700 12px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(255,209,102,0.9)';
     ctx.fillText(modName(G.mod) + '  ·  ' + modDesc(G.mod), 20, 100);
+  }
+
+  for (let i = 0; i < (G.rewinds || 0); i++) {
+    ctx.strokeStyle = 'rgba(125,255,176,0.95)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(30 + i * 14, 90 - 24, 5, 0, TAU);
+    ctx.stroke();
   }
 
   for (let i = 0; i < (G.shieldLeft || 0); i++) {
@@ -2718,6 +2813,31 @@ function drawVictory() {
   ctx.globalAlpha = 1;
 }
 
+function drawRewindable() {
+  ctx.fillStyle = 'rgba(4,5,12,0.74)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.font = '800 32px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.fillStyle = '#7dffb0';
+  ctx.fillText(t('rewind'), W / 2, H / 2 - 36);
+
+  ctx.font = '600 15px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.fillStyle = 'rgba(200,215,235,0.92)';
+  ctx.fillText(t('rewindHint'), W / 2, H / 2 + 2);
+
+  ctx.font = '800 15px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.fillStyle = '#ffd166';
+  ctx.fillText(t('rewindLeft', G.rewinds), W / 2, H / 2 + 30);
+
+  const bw = 220, bx = W / 2 - bw / 2, by = H / 2 + 48;
+  ctx.fillStyle = 'rgba(255,255,255,0.14)';
+  roundedRect(ctx, bx, by, bw, 6, 3);
+  ctx.fill();
+  ctx.fillStyle = '#7dffb0';
+  roundedRect(ctx, bx, by, bw * clamp(G.rewindT / 1.5, 0, 1), 6, 3);
+  ctx.fill();
+}
+
 function drawPaused() {
   ctx.fillStyle = 'rgba(4,5,12,0.72)';
   ctx.fillRect(0, 0, W, H);
@@ -2783,6 +2903,7 @@ function render() {
   if (G.state === 'paused') drawPaused();
   if (G.state === 'gameover') drawGameOver();
   if (G.state === 'victory') drawVictory();
+  if (G.state === 'rewindable') drawRewindable();
 
   if (G.combo >= 5 && G.state === 'playing') {
     const heat = Math.min(1, (G.combo - 4) / 24);
@@ -2881,6 +3002,10 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
     if (G.state === 'playing') G.state = 'paused';
     else if (G.state === 'paused') G.state = 'playing';
+    return;
+  }
+  if ((e.key === 'r' || e.key === 'R') && G.state === 'rewindable') {
+    doRewind();
     return;
   }
   if ((e.key === 'c' || e.key === 'C') && (G.state === 'gameover' || G.state === 'victory')) {
