@@ -80,6 +80,10 @@ const Sound = {
   resume() {
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
   },
+  toggle() {
+    this.on = !this.on;
+    if (this.on) { Music.start(); Sound.card(); } else { Music.stop(); }
+  },
   tone(freq, dur, type, gain, slideTo) {
     if (!this.on || !this.ctx) return;
     const t = this.ctx.currentTime;
@@ -108,6 +112,60 @@ const Sound = {
   resonance() { this.tone(880, 0.09, 'triangle', 0.05, 1760); },
   shift() { this.tone(560, 0.05, 'sine', 0.03, 760); },
   overdrive() { this.tone(120, 0.45, 'sawtooth', 0.08, 1600); },
+};
+
+/* ---------------------------- music ---------------------------- */
+
+/* A slow pentatonic pulse synth — no files, all oscillators. */
+const Music = {
+  timer: null,
+  step: 0,
+  base: [110.00, 130.81, 146.83, 164.81, 196.00, 220.00],
+  pattern: [0, 2, 4, 5, 3, 2, 1, 3],
+  start() {
+    if (!Sound.ctx || this.timer) return;
+    this.timer = setInterval(() => this.tick(), 300);
+  },
+  stop() {
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+  },
+  tick() {
+    if (!Sound.on || !Sound.ctx) return;
+    const t = Sound.ctx.currentTime;
+    const idx = this.pattern[this.step % this.pattern.length];
+    const freq = this.base[idx] * (1 + Math.min(G.level, 20) * 0.012);
+    const osc = Sound.ctx.createOscillator();
+    const g = Sound.ctx.createGain();
+    const filt = Sound.ctx.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.setValueAtTime(900, t);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.014, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+    osc.connect(filt);
+    filt.connect(g);
+    g.connect(Sound.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.6);
+
+    // a soft shimmer an octave up every other bar
+    if (this.step % 8 === 0) {
+      const o2 = Sound.ctx.createOscillator();
+      const g2 = Sound.ctx.createGain();
+      o2.type = 'sine';
+      o2.frequency.setValueAtTime(freq * 4, t);
+      g2.gain.setValueAtTime(0.0001, t);
+      g2.gain.exponentialRampToValueAtTime(0.007, t + 0.05);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+      o2.connect(g2);
+      g2.connect(Sound.ctx.destination);
+      o2.start(t);
+      o2.stop(t + 1.2);
+    }
+    this.step += 1;
+  },
 };
 
 /* --------------------------- upgrades --------------------------- */
@@ -160,9 +218,9 @@ const CARDS = [
 /* Light tones: the prism splits white light into three. Brick tone and ball tone
    matching is the core skill of the game — same tone deals double damage. */
 const TONES = [
-  { name: 'CYAN',    hex: '#54f2ff', dim: '#1e8db0' },
-  { name: 'VIOLET',  hex: '#b07bff', dim: '#5c38c4' },
-  { name: 'AMBER',   hex: '#ffd166', dim: '#b8871f' },
+  { name: 'CYAN',    hex: '#7cf6ff', dim: '#0d5a78' },
+  { name: 'VIOLET',  hex: '#c69bff', dim: '#4a2a94' },
+  { name: 'AMBER',   hex: '#ffdb8a', dim: '#a3721a' },
 ];
 const FINAL_FLOOR = 10;
 
@@ -439,7 +497,8 @@ function bricksLeft() {
 }
 
 function ballSpeed() {
-  return clamp(520 + (G.level - 1) * 10, 520, 820) * G.upg.speedMul;
+  const comboBoost = 1 + Math.min(G.combo || 0, 30) * 0.004;   // up to +12%
+  return clamp(520 + (G.level - 1) * 10, 520, 820) * G.upg.speedMul * comboBoost;
 }
 
 function paddleWidth() {
@@ -460,6 +519,14 @@ function cellOn(pattern, r, c, rows, cols) {
     case 4: return (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) ? true : (r + c) % 3 !== 1;
     case 5: return c % 4 !== 3;                                   // vertical lanes
     case 6: return (r + c) % 4 !== 0 || r % 2 === 0;              // diagonal weave
+    case 7: {                                                     // prism pyramid
+      const map = ['....#....', '...###...', '..#####..', '.#######.', '#########', '#########'];
+      return map[Math.min(r, map.length - 1)][c] === '#';
+    }
+    case 8: {                                                     // hourglass
+      const map = ['#########', '#########', '.##...##.', '..#####..', '...###...', '....#....'];
+      return map[Math.min(r, map.length - 1)][c] === '#';
+    }
     default: return true;
   }
 }
@@ -470,7 +537,7 @@ function buildLevel(level) {
   const startX = (W - totalW) / 2;
   const startY = 100;
   const rows = clamp(4 + Math.floor((level - 1) / 2), 4, 7);
-  const pattern = (level - 1) % 7;
+  const pattern = (level - 1) % 9;
   const bricks = [];
   const sweepRow = level >= 4 ? rows - 1 : -1;
 
@@ -621,6 +688,7 @@ function beginLevel() {
   G.paddle.w = paddleWidth();
   resetBalls();
   G.state = 'playing';
+  Music.start();
   G.tip = G.level === 1 ? 5.5 : 0;
   burst(W / 2, H - 62, 14, '#54f2ff', 90);
 }
@@ -834,6 +902,7 @@ function chooseCard(i) {
   G.level += 1;
   if (!G.endless && G.level > FINAL_FLOOR) {
     G.state = 'victory';
+    Music.stop();
     G.wonAt = G.time;
     G.stats.wins = (G.stats.wins || 0) + 1;
     saveBest();
@@ -1119,6 +1188,7 @@ function updateBalls(dt) {
     Sound.lose();
     if (G.lives <= 0) {
       G.state = 'gameover';
+      Music.stop();
       G.deadAt = G.time;
       haptic(60);
       saveBest();
@@ -2175,8 +2245,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === 'm' || e.key === 'M') {
-    Sound.on = !Sound.on;
-    if (Sound.on) Sound.card();
+    Sound.toggle();
     return;
   }
   if (e.key === ' ' || e.key === 'Enter') {
