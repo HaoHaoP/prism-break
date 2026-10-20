@@ -4477,6 +4477,38 @@ function renderCore() {
     : 'rgba(84,242,255,0.12)';
   ctx.stroke();
 
+  // touch aiming aid: the finger sits in the middle of the field and hides the
+  // arc it is steering, so draw the line it is pointing along
+  if (G.pointers.active) {
+    const fx = G.pointers.x;
+    const fy = G.pointers.y;
+    const fd = Math.hypot(fx - CORE.cx, fy - CORE.cy);
+    if (fd > 24) {
+      const ca = Math.cos(CORE.shieldA);
+      const sa2 = Math.sin(CORE.shieldA);
+      ctx.save();
+      ctx.globalAlpha = 0.27;
+      ctx.strokeStyle = '#54f2ff';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([5, 8]);
+      ctx.beginPath();
+      ctx.moveTo(CORE.cx + ca * (CORE.coreR + 20), CORE.cy + sa2 * (CORE.coreR + 20));
+      ctx.lineTo(CORE.cx + ca * (CORE.shieldR - 14), CORE.cy + sa2 * (CORE.shieldR - 14));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 0.42;
+      ctx.beginPath();
+      ctx.arc(fx, fy, 15, 0, TAU);
+      ctx.stroke();
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.arc(fx, fy, 3, 0, TAU);
+      ctx.fillStyle = '#54f2ff';
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   // balls
   for (const b of CORE.balls) {
     for (let i = 0; i < b.trail.length; i++) {
