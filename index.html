@@ -284,6 +284,7 @@ const FINAL_FLOOR = 10;
 const MODIFIERS = [
   { id: 'gravity', zh: '下坠', en: 'DOWNDRAFT', zhDesc: '球被持续向下牵引，得分 x1.2', enDesc: 'constant pull downward, score x1.2', forceY: 190, score: 1.2 },
   { id: 'wind',    zh: '横风', en: 'CROSSWIND', zhDesc: '侧风来回吹动球，得分 x1.2',   enDesc: 'the ball is pushed sideways, score x1.2', forceX: 240, score: 1.2 },
+  { id: 'cycle',   zh: '色轮', en: 'COLOUR WHEEL', zhDesc: '整场砖块每 5 秒换一次色，得分 x1.3', enDesc: 'every brick shifts colour every 5s, score x1.3', cycle: 5, score: 1.3 },
   { id: 'swift', zh: '急流', en: 'CURRENT',  zhDesc: '球速 +15%',              enDesc: 'ball speed +15%',        speed: 1.15 },
   { id: 'still', zh: '静滞', en: 'STILL',    zhDesc: '球速 -12%',              enDesc: 'ball speed -12%',        speed: 0.88 },
   { id: 'dense', zh: '致密', en: 'DENSE',    zhDesc: '砖块 +1 血，得分 ×1.4',   enDesc: '+1 hp, score x1.4',      hp: 1, score: 1.4 },
@@ -1736,6 +1737,23 @@ function doRewind() {
 
 /* Scars left by shattered bricks: fly through one and the ball speeds up.
    Breaking a corridor open for yourself is now a real tactic. */
+/* Colour wheel: every brick rotates its tone on a timer, so the cluster you were
+   lining up moves out from under you. */
+function updateCycle(dt) {
+  if (!G.mod || !G.mod.cycle) { G.cycleT = 0; return; }
+  if (!G.cycleT) G.cycleT = G.mod.cycle;
+  G.cycleT -= dt;
+  if (G.cycleT > 0) return;
+  G.cycleT = G.mod.cycle;
+  for (const b of G.bricks) {
+    if (!b.alive || !b.breakable || b.tone < 0) continue;
+    b.tone = (b.tone + 1) % 3;
+    b.flash = Math.max(b.flash, 0.5);
+  }
+  G.toneChain = 0;
+  Sound.tone(300, 0.12, 'sine', 0.03, 520);
+}
+
 function updateVeins(dt) {
   for (let i = G.veins.length - 1; i >= 0; i--) {
     const v = G.veins[i];
@@ -1877,6 +1895,7 @@ function update(dt) {
     updateHazards(dt);
     updateFusion(dt);
     updateVeins(dt);
+    updateCycle(dt);
     if (G.comboTimer > 0) {
       G.comboTimer -= dt;
       if (G.comboTimer <= 0) G.combo = 0;
@@ -3011,7 +3030,7 @@ function render() {
   }
   ctx.restore();
 
-  if (G.state !== 'menu') drawHud();
+  if (G.state !== 'menu' && G.state !== 'gameover' && G.state !== 'victory') drawHud();
 
   if (G.state === 'menu') drawMenu();
   if (G.state === 'cardselect') drawCardSelect();

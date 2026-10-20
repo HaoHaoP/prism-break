@@ -44,6 +44,7 @@
 | 暗场 | 隐藏砖块血条 |
 | 下坠 | 球被持续向下牵引，得分 ×1.2 |
 | 横风 | 侧风来回吹动球，得分 ×1.2 |
+| 色轮 | 整场砖块每 5 秒换一次色，得分 ×1.3 |
 
 | 按键 | 动作 |
 | --- | --- |
@@ -132,7 +133,7 @@ Floors also mix in **regenerating** bricks, **prism cores** that flip your tone 
 
 ## Floor modifiers
 
-From floor 2 on, most floors carry a random rule (shown top-left): **CURRENT** (ball speed +15%), **STILL** (−12%), **DENSE** (+1 hp, score ×1.4), **GREED** (score ×1.6, speed +8%), **SWARM** (all bricks 1 hp, score ×1.2) **BLACKOUT** (brick health hidden), **DOWNDRAFT** (constant downward pull, score ×1.2) or **CROSSWIND** (the ball gets blown sideways, score ×1.2).
+From floor 2 on, most floors carry a random rule (shown top-left): **CURRENT** (ball speed +15%), **STILL** (−12%), **DENSE** (+1 hp, score ×1.4), **GREED** (score ×1.6, speed +8%), **SWARM** (all bricks 1 hp, score ×1.2) **BLACKOUT** (brick health hidden), **DOWNDRAFT** (constant downward pull, score ×1.2) or **CROSSWIND** (the ball gets blown sideways, score ×1.2) or **COLOUR WHEEL** (every brick rotates its tone every 5s, breaking your chain, score ×1.3).
 
 ## Overdrive
 
