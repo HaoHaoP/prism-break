@@ -411,7 +411,7 @@ const I18N = {
  twinHalf: '孪生 1/2 —— 快打另一块', twinDone: '孪生破碎',
  coreMode: '核心', ringWord: (n) => '第 ' + n + ' 环', coreClear: '环已清', core: '核心',
  pulse: '脉冲', chargeWord: '充能', stackedFloor: '双层规则', bossWord: '吞噬者', bossWeak: '打弱点', quitRun: '退出本局',
- installApp: '安装到桌面',
+ installApp: '安装到桌面', installHint: '请用 Chrome 右上角 ⋮ 菜单', installHint2: '→ 安装应用 / 添加到主屏幕',
  bossFlawless: '无伤通环', achWord: '成就', coreStatsWord: '接球', streakWord: '连击', fusionReady: '合光 F', fusionCool: '合光',
     rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
     odWaste: (n) => '只剩 ' + n + ' 块砖，超载留着', odCarry: '清层返还 30% 充能',
@@ -447,7 +447,7 @@ const I18N = {
  twinHalf: 'TWIN 1/2 — break its pair', twinDone: 'TWIN BROKEN',
  coreMode: 'CORE', ringWord: (n) => 'RING ' + n, coreClear: 'RING CLEAR', core: 'CORE',
  pulse: 'PULSE', chargeWord: 'CHARGE', stackedFloor: 'TWO MODIFIERS', bossWord: 'DEVOURER', bossWeak: 'HIT THE GLOWING NODE', quitRun: 'QUIT RUN',
- installApp: 'INSTALL APP',
+ installApp: 'INSTALL APP', installHint: 'Use the Chrome ⋮ menu', installHint2: '→ Install app / Add to Home screen',
  bossFlawless: 'FLAWLESS RING', achWord: 'ACH', coreStatsWord: 'CATCHES', streakWord: 'STREAK', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
     odWaste: (n) => n + ' bricks left — save it', odCarry: 'floor clear refunds 30%',
@@ -613,6 +613,7 @@ const G = {
   langRect: null,
   dailyRect: null,
   installRect: null,
+  installHintT: 0,
   blitzRect: null,
   coreRect: null,
   stats: { runs: 0, bricks: 0, overdrives: 0, wins: 0, burstBest: 0, comboBest: 0, depthBest: 0,
@@ -1413,11 +1414,26 @@ function onPointerDown(clientX, clientY) {
       startBlitz();
       return;
     }
-    if (pointInRect(p, G.installRect) && prismInstallPrompt) {
-      prismInstallPrompt.prompt();
-      const pr = prismInstallPrompt;
-      prismInstallPrompt = null;
-      if (pr.userChoice) pr.userChoice.catch(() => {});
+    if (pointInRect(p, G.installRect)) {
+      let fired = false;
+      if (prismInstallPrompt) {
+        try {
+          prismInstallPrompt.prompt();
+          const pr = prismInstallPrompt;
+          prismInstallPrompt = null;
+          fired = true;
+          if (pr.userChoice) {
+            pr.userChoice.then((ch) => {
+              if (!ch || ch.outcome !== 'accepted') G.installHintT = 7;
+            }).catch(() => { G.installHintT = 7; });
+          }
+        } catch (e) {
+          fired = false;
+        }
+      }
+      // Chrome refuses the prompt outright in several cases (already installed once,
+      // MIUI swallowing the dialog, prompt expired) — say what to tap instead
+      if (!fired) G.installHintT = 7;
       return;
     }
     const cr3 = G.coreRect;
@@ -2916,7 +2932,8 @@ function drawMenu() {
   G.coreRect = { x: cxx, y: lby, w: lbw, h: lbh };
   G.langRect = { x: lgx, y: lby, w: lbw, h: lbh };
 
-  if (prismInstallPrompt) {
+  const installed = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  if (!installed) {
     // top-right corner: the title block owns the middle and the mode buttons own
     // the bottom, so this is the only place a chip cannot cover anything
     const iw = 152, ih = 34;
@@ -2934,6 +2951,13 @@ function drawMenu() {
     ctx.font = '800 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(t('installApp'), ix + iw / 2, iy + 22);
+    if (G.installHintT > 0) {
+      ctx.textAlign = 'right';
+      ctx.font = '700 12px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+      ctx.fillStyle = 'rgba(255,209,102,0.95)';
+      ctx.fillText(t('installHint'), W - 24, 76);
+      ctx.fillText(t('installHint2'), W - 24, 93);
+    }
   } else {
     G.installRect = null;
   }
@@ -4288,7 +4312,8 @@ function updateCore(dt) {
   if (CORE.shake > 0) CORE.shake = Math.max(0, CORE.shake - dt * 30);
   if (CORE.flash > 0) CORE.flash = Math.max(0, CORE.flash - dt * 2.2);
   if (CORE.shieldHitGlow > 0) CORE.shieldHitGlow = Math.max(0, CORE.shieldHitGlow - dt * 3.4);
-  if (CORE.achToastT > 0) CORE.achToastT = Math.max(0, CORE.achToastT - dt);
+  if (G.achToastT > 0) G.achToastT = Math.max(0, G.achToastT - dt);
+  if (G.installHintT > 0) G.installHintT = Math.max(0, G.installHintT - dt);
   if (CORE.shieldBoost > 0) CORE.shieldBoost = Math.max(0, CORE.shieldBoost - dt);
   if (CORE.slowT > 0) CORE.slowT = Math.max(0, CORE.slowT - dt);
   if (CORE.comboT > 0) {
