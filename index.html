@@ -255,7 +255,19 @@ const CARDS = [
     apply: (u) => { u.arc += 2; } },
   { id: 'focus',   name: 'FOCUS',   tag: 'OFFENSE', max: 1, desc: () => 'Overdrive triggers at 70 instead of 100.',
     apply: (u) => { u.odMax = 70; } },
-  { id: 'mirror',  name: 'MIRROR',  tag: 'CONTROL', max: 2, desc: () => 'Balls gain 8% speed off the paddle.',
+  { id: 'chain',  name: 'CHAIN',   tag: 'OFFENSE', max: 1, desc: () => 'A same-tone chain needs 2 hits instead of 3.',
+    apply: (u) => { u.chainNeed = 2; } },
+  { id: 'scar',   name: 'SCAR',    tag: 'OFFENSE', max: 2, desc: () => 'Light scars accelerate the ball twice as hard.',
+    apply: (u) => { u.veinMul = (u.veinMul || 1) * 2; } },
+  { id: 'ember',  name: 'EMBER',   tag: 'CONTROL', max: 1, desc: () => 'Fusion leaves one ball alive instead of none.',
+    apply: (u) => { u.fuseKeep = 1; } },
+  { id: 'recall', name: 'RECALL',  tag: 'DEFENSE', max: 1, desc: () => '+2 rewind charges.',
+    apply: (u) => { u.rewindBonus = (u.rewindBonus || 0) + 2; G.rewinds = (G.rewinds || 0) + 2; } },
+  { id: 'anchor', name: 'ANCHOR',  tag: 'CONTROL', max: 1, desc: () => 'Floor-rule forces no longer drag your ball.',
+    apply: (u) => { u.anchor = 1; } },
+  { id: 'blood',  name: 'BLOOD',   tag: 'RISK',    max: 2, desc: () => 'Each life you lose gives +1 damage for good.',
+    apply: (u) => { u.bloodDebt = (u.bloodDebt || 0) + 1; } },
+  { id: 'mirror', name: 'MIRROR',  tag: 'CONTROL', max: 1, desc: () => 'Balls pick up 8% speed off the paddle.',
     apply: (u) => { u.mirror += 0.08; } },
 ];
 
@@ -421,6 +433,12 @@ const CARD_ZH = {
   arc:      ['电弧', '破砖时向最近 2 块砖放电'],
   focus:    ['专注', '超载只需 70 能量'],
   mirror:   ['镜面', '球撞挡板后提速 8%'],
+  chain:    ['染光', '连锁只需 2 次同色'],
+  scar:     ['光痕', '光痕加速效果翻倍'],
+  ember:    ['余烬', '合光后留下一颗球'],
+  recall:   ['回响', '倒带 +2 次'],
+  anchor:   ['锚定', '无视层规则的牵引力'],
+  blood:    ['血债', '每掉一命永久 +1 伤害'],
 };
 for (const c of CARDS) {
   const z = CARD_ZH[c.id];
@@ -859,7 +877,7 @@ function startRun(daily) {
   G.upg = freshUpgrades();
   G.tone = 0;
   G.remaps = 0;
-  G.rewinds = 2;
+  G.rewinds = 2 + (G.upg.rewindBonus || 0);
   G.rewindT = 0;
   G.history = [];
   G.charge = 0;
@@ -1036,7 +1054,7 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
     if (match) {
       G.toneChain = (G.toneChain || 0) + 1;
       b.lit = true;
-      if (G.toneChain >= 3) {
+      if (G.toneChain >= (G.upg.chainNeed || 3)) {
         G.toneChain = 0;
         G.charge = Math.min(odMax(), G.charge + 12);
         G.stats.chains = (G.stats.chains || 0) + 1;
@@ -1319,7 +1337,7 @@ function tryFusion() {
   G.fusionCD = 12;
   G.stats.fusions = (G.stats.fusions || 0) + 1;
   checkAchievements();
-  G.balls.length = 0;
+  G.balls.length = G.upg.fuseKeep ? Math.min(1, G.balls.length) : 0;
   G.fusionBeam = { x: G.paddle.x, t: 1.0, w: Math.max(96, G.paddle.w * 0.9), tick: 0 };
   G.flash = Math.max(G.flash, 0.5);
   G.shake = 12;
@@ -1584,8 +1602,8 @@ function updateBalls(dt) {
     }
 
     // floor modifiers that bend the ball off a straight line
-    if (G.mod && G.mod.forceY) b.vy += G.mod.forceY * dt;
-    if (G.mod && G.mod.forceX) b.vx += G.mod.forceX * Math.sin(G.time * 0.55) * dt;
+    if (G.mod && G.mod.forceY && !G.upg.anchor) b.vy += G.mod.forceY * dt;
+    if (G.mod && G.mod.forceX && !G.upg.anchor) b.vx += G.mod.forceX * Math.sin(G.time * 0.55) * dt;
     const sp0 = Math.hypot(b.vx, b.vy), cap0 = target * 1.5;
     if (sp0 > cap0) { b.vx *= cap0 / sp0; b.vy *= cap0 / sp0; }
 
@@ -1657,6 +1675,7 @@ function updateHazards(dt) {
 
 function loseLife() {
   G.lives -= 1;
+  if (G.upg.bloodDebt) G.upg.dmg += G.upg.bloodDebt;
   G.shake = 12;
   G.flash = 0.6;
   Sound.lose();
@@ -1733,7 +1752,7 @@ function veinBoost(b) {
     const sp = Math.hypot(b.vx, b.vy);
     const cap = ballSpeed() * 1.4;
     if (sp < cap) {
-      const mul = 1 + Math.min(0.09, (cap - sp) / cap * 0.5);
+      const mul = 1 + Math.min(0.09 * (G.upg.veinMul || 1), (cap - sp) / cap * 0.5 * (G.upg.veinMul || 1));
       b.vx *= mul;
       b.vy *= mul;
       v.life = Math.max(0, v.life - 2.2);
@@ -3200,6 +3219,7 @@ window.__prism = {
   hit: (i, tone) => damageBrick(G.bricks[i], G.upg.dmg, G.bricks[i].x + 5, G.bricks[i].y + 5, false, tone === undefined ? G.tone : tone),
   debug: G,
   mods: MODIFIERS,
+  cards: CARDS,
   applyMod: (id) => { G.mod = id ? MODIFIERS.find((m) => m.id === id) || null : null; },
 };
 })();

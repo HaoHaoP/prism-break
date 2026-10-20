@@ -64,7 +64,7 @@
 - **10 层**，每层图案不同、砖块血量递增，越深越有钢柱挡住你的舒适路线。
 - **每 5 层**出现金色核心棱镜，外面套着三片护盾；护盾不破，核心免疫。它还会每隔几秒向下抛**干扰弹**，命中挡板会让挡板缩小 3 秒。
 - **打完第 10 层**触发结局，之后可继续进入无尽模式。
-- **25 张强化卡**，清层后三选一：多球、加宽、穿透、爆破、自动激光、暴击、护盾、缓冲、寻踪、分裂、共鸣增幅、电弧、吸血、专注、镜面……以及三张**风险卡**（玻璃 / 狂战 / 易爆），换来高伤害但付出代价。
+- **31 张强化卡**，清层后三选一：多球、加宽、穿透、爆破、自动激光、暴击、护盾、缓冲、寻踪、分裂、共鸣增幅、电弧、吸血、专注、镜面……以及专门咬住新机制的六张：**染光**（连锁只需两次同色）、**光痕**（光痕加速翻倍）、**余烬**（合光后留一颗球）、**回响**（倒带 +2 次）、**锚定**（无视层规则的牵引力）、**血债**（每掉一命永久 +1 伤害）。还有几张**风险卡**（玻璃 / 狂战 / 易爆 / 血债），换来高伤害但付出代价。
 
 一局 5～15 分钟。
 
@@ -143,7 +143,7 @@ Breaking bricks charges the meter. At full, `SHIFT` fires a prism burst: every b
 - 10 floors, each with a generated layout, growing brick health and drifting rows.
 - Every 5th floor spawns a golden core prism guarded by three shield plates — the core is immune until they are gone, and it lobs **disruptor orbs** that shrink your paddle for three seconds.
 - Clear floor 10 for the ending, then continue into endless mode.
-- 25 upgrades, three at a time: extra balls, wider paddle, pierce, blast, auto-lasers, crits, shields, cushion, seeker, fork, resonance amp, arc, vampire, focus, mirror — plus three **risk** cards that trade safety for damage.
+- 31 upgrades, three at a time: extra balls, wider paddle, pierce, blast, auto-lasers, crits, shields, cushion, seeker, fork, resonance amp, arc, vampire, focus, mirror — plus six that lean on the new systems (CHAIN, SCAR, EMBER, RECALL, ANCHOR, BLOOD) and a few **risk** cards that trade safety for damage.
 
 ## Stats and achievements
 
