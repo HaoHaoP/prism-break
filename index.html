@@ -371,7 +371,9 @@ const I18N = {
     endless: '点击进入无尽模式',
     resonance: '共鸣', prismShift: '棱镜换色', regrow: '再生', fork: '分裂', vampireHeal: '吸血 +1 命',
     shielded: '护盾保护', crit: '暴击', enraged: '核心狂暴',
-    chain: '染光连锁', fusion: '合 光', slowmo: '减速', history: '历史', saveImage: '存图', fusionReady: '合光 F', fusionCool: '合光',
+    chain: '染光连锁', fusion: '合 光', slowmo: '减速', history: '历史', saveImage: '存图',
+ blitz: '疾速 60s', timeUp: '时间到', blitzBest: '疾速最高',
+ twinHalf: '孪生 1/2 —— 快打另一块', twinDone: '孪生破碎', fusionReady: '合光 F', fusionCool: '合光',
     rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
     odWaste: (n) => '只剩 ' + n + ' 块砖，超载留着', odCarry: '清层返还 30% 充能',
     floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
@@ -401,7 +403,9 @@ const I18N = {
     endless: 'CLICK TO ENTER THE ENDLESS',
     resonance: 'RESONANCE', prismShift: 'PRISM SHIFT', regrow: 'REGROW', fork: 'FORK', vampireHeal: 'VAMPIRIC +1',
     shielded: 'SHIELDED', crit: 'CRIT', enraged: 'ENRAGED',
-    chain: 'LIT CHAIN', fusion: 'FUSION', slowmo: 'SLOW-MO', history: 'HISTORY', saveImage: 'IMAGE', fusionReady: 'FUSION F', fusionCool: 'FUSION',
+    chain: 'LIT CHAIN', fusion: 'FUSION', slowmo: 'SLOW-MO', history: 'HISTORY', saveImage: 'IMAGE',
+ blitz: 'BLITZ 60s', timeUp: "TIME'S UP", blitzBest: 'BLITZ BEST',
+ twinHalf: 'TWIN 1/2 — break its pair', twinDone: 'TWIN BROKEN', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
     odWaste: (n) => n + ' bricks left — save it', odCarry: 'floor clear refunds 30%',
     floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
@@ -545,6 +549,9 @@ const G = {
   fusionBeam: null,
   rewinds: 2,
   rewindT: 0,
+  blitz: false,
+  blitzT: 0,
+  twinTimers: {},
   history: [],
   fuseRect: null,
   odRect: null,
@@ -562,6 +569,7 @@ const G = {
   toneRects: [],
   langRect: null,
   dailyRect: null,
+  blitzRect: null,
   stats: { runs: 0, bricks: 0, overdrives: 0, wins: 0, burstBest: 0, comboBest: 0, depthBest: 0,
            rewindSaved: 0, chains: 0, fusions: 0 },
   achs: {},
@@ -823,6 +831,19 @@ function buildLevel(level) {
     }
   }
 
+  // twins: pair bricks from opposite corners so a single lucky bounce cannot clear both
+  if (level >= 4) {
+    const cands = bricks.filter((bb) => bb.breakable && bb.kind === 'plain' && bb.tone >= 0);
+    const pairs = Math.min(3, Math.floor(cands.length / 6));
+    for (let i = 0; i < pairs; i++) {
+      const a = cands[i];
+      const b2 = cands[cands.length - 1 - i];
+      if (!a || !b2 || a === b2) continue;
+      a.twinId = 'T' + level + '_' + i;
+      b2.twinId = a.twinId;
+    }
+  }
+
   // boss floor: a core prism that stays immune until its shield plates are gone.
   // Every tenth floor throws two of them at you at once.
   if (level % 5 === 0) {
@@ -907,7 +928,20 @@ function resetBalls() {
   }
 }
 
+function startBlitz() {
+  G.blitz = true;
+  startRun(false);
+  G.blitz = true;
+  G.blitzT = 60;
+  G.lives = 9;
+  Sound.card();
+  if (G.floaters.length < 9) floatText(W / 2, H * 0.4, t('blitz'), '#ffd166');
+}
+
 function startRun(daily) {
+  G.blitz = false;
+  G.blitzT = 0;
+  G.twinTimers = {};
   G.daily = !!daily;
   if (G.daily) seedRng(dailySeed()); else unseedRng();
   G.stats.runs += 1;
@@ -966,6 +1000,7 @@ function beginLevel() {
   G.hazardTimer = 0;
   G.paddleDebuff = 0;
   G.layerBricks = 0;
+  G.twinTimers = {};
   G.clearPending = 0;
   G.clearAt = 0;
   G.history = [];
@@ -1163,10 +1198,49 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
   }
 
   b.alive = false;
+
+  // TWINS: breaking one half alone buys nothing — it reassembles unless its pair
+  // also goes down inside the window. Only pierce, blast, a lit chain or a fusion
+  // beam (all of which arrive as chain) can take a pair in one pass.
+  if (b.twinId && !chain) {
+    const tk = b.twinId;
+    if ((G.twinTimers[tk] || 0) > 0) {
+      G.twinTimers[tk] = 0;
+      // the pair resolves: the sealed half shatters with this one
+      for (const o of G.bricks) {
+        if (o !== b && o.twinId === tk && o.alive) {
+          o.alive = false;
+          o.sealedT = 0;
+          o.flash = 1;
+          burst(o.x + o.w / 2, o.y + o.h / 2, 14, '#7dffb0', 190);
+          debris(o.x + o.w / 2, o.y + o.h / 2, 4, o.color);
+          G.score += 80;
+        }
+      }
+      G.score += 240;
+      G.stats.twins = (G.stats.twins || 0) + 1;
+      Sound.resonance();
+      haptic(20);
+      burst(b.x + b.w / 2, b.y + b.h / 2, 24, '#7dffb0', 220);
+      if (G.floaters.length < 9) floatText(b.x + b.w / 2, b.y + b.h / 2, t('twinDone'), '#7dffb0');
+    } else {
+      G.twinTimers[tk] = 1.5;
+      b.alive = true;
+      b.hp = b.maxHp;
+      b.flash = 1;
+      b.sealedT = 1.5;
+      Sound.shift();
+      burst(b.x + b.w / 2, b.y + b.h / 2, 8, '#ffd166', 120);
+      if (G.floaters.length < 9) floatText(b.x + b.w / 2, b.y + b.h / 2, t('twinHalf'), '#ffd166');
+      return false;
+    }
+  }
+
   Sound.break_();
   G.combo += 1;
   G.comboTimer = 2.4;
   G.stats.bricks += 1;
+  if (G.blitz) G.blitzT = Math.min(150, G.blitzT + 1);
   if (G.veins.length < FX.veins) {
     G.veins.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, r: b.w * 0.46, life: 7, tone: b.tone });
   }
@@ -1265,6 +1339,11 @@ function onPointerDown(clientX, clientY) {
     const dr = G.dailyRect;
     if (dr && p.x >= dr.x && p.x <= dr.x + dr.w && p.y >= dr.y && p.y <= dr.y + dr.h) {
       startRun(true);
+      return;
+    }
+    const br2 = G.blitzRect;
+    if (br2 && p.x >= br2.x && p.x <= br2.x + br2.w && p.y >= br2.y && p.y <= br2.y + br2.h) {
+      startBlitz();
       return;
     }
     const lr = G.langRect;
@@ -1750,6 +1829,16 @@ function updateHazards(dt) {
 }
 
 function loseLife() {
+  if (G.blitz) {
+    G.blitzT = Math.max(0, G.blitzT - 3);
+    G.combo = 0;
+    resetBalls();
+    G.flash = 0.4;
+    Sound.lose();
+    haptic(40);
+    if (G.floaters.length < 9) floatText(W / 2, H * 0.42, '-3s', '#ff4f6d');
+    return;
+  }
   G.lives -= 1;
   if (G.upg.bloodDebt) G.upg.dmg += G.upg.bloodDebt;
   G.shake = 12;
@@ -1974,9 +2063,33 @@ function update(dt) {
     updateFusion(dt);
     updateVeins(dt);
     updateCycle(dt);
+    for (const tk in G.twinTimers) {
+      if (G.twinTimers[tk] > 0) {
+        G.twinTimers[tk] -= dt;
+        if (G.twinTimers[tk] <= 0) G.twinTimers[tk] = 0;
+      }
+    }
+    for (const bb of G.bricks) {
+      if (bb.sealedT > 0) bb.sealedT -= dt;
+    }
     if (G.comboTimer > 0) {
       G.comboTimer -= dt;
       if (G.comboTimer <= 0) G.combo = 0;
+    }
+    if (G.blitz && G.state === 'playing') {
+      G.blitzT -= realDt;
+      if (G.blitzT <= 0) {
+        G.blitzT = 0;
+        G.state = 'gameover';
+        G.tip = 0;
+        Music.stop();
+        G.deadAt = G.time;
+        saveBest();
+        recordRun(G.score, G.level);
+        saveStats();
+        checkAchievements();
+        haptic(60);
+      }
     }
     if (G.state === 'playing' && bricksLeft() === 0 && !G.clearPending) {
       // hold the floor open for a beat so the last explosion and slow-motion land
@@ -2057,6 +2170,29 @@ function drawBricks() {
     roundedRect(ctx, b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 5);
     ctx.stroke();
     ctx.globalAlpha = 1;
+
+    if (b.twinId) {
+      ctx.strokeStyle = 'rgba(125,255,176,0.5)';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([4, 5]);
+      ctx.beginPath();
+      ctx.moveTo(b.x + b.w / 2, b.y);
+      ctx.lineTo(b.x + b.w / 2, b.y - 6);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(125,255,176,0.85)';
+      ctx.beginPath();
+      ctx.arc(b.x + 7, b.y + 7, 2.6, 0, TAU);
+      ctx.fill();
+    }
+    if (b.sealedT > 0) {
+      ctx.globalAlpha = 0.4 + Math.abs(Math.sin(b.sealedT * 14)) * 0.6;
+      ctx.strokeStyle = '#ffd166';
+      ctx.lineWidth = 2.4;
+      roundedRect(ctx, b.x + 1, b.y + 1, b.w - 2, b.h - 2, 5);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
 
     if (b.lit) {
       ctx.globalAlpha = 0.35 + Math.abs(Math.sin(b.wobble * 3)) * 0.45;
@@ -2339,10 +2475,15 @@ function drawHud() {
   ctx.textAlign = 'center';
   ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(160,180,210,0.85)';
-  ctx.fillText(t('floor'), W / 2, 30);
+  ctx.fillText(G.blitz ? t('blitz') : t('floor'), W / 2, 30);
   ctx.font = '700 26px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
-  ctx.fillStyle = '#ff4fd8';
-  ctx.fillText((G.endless ? '' : Math.min(G.level, FINAL_FLOOR) + '/') + (G.endless ? String(G.level) : FINAL_FLOOR), W / 2, 54);
+  ctx.fillStyle = G.blitz ? (G.blitzT <= 10 ? '#ff4f6d' : '#ffd166') : '#ff4fd8';
+  if (G.blitz) {
+    const secs = Math.max(0, Math.ceil(G.blitzT));
+    ctx.fillText(Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0'), W / 2, 54);
+  } else {
+    ctx.fillText((G.endless ? '' : Math.min(G.level, FINAL_FLOOR) + '/') + (G.endless ? String(G.level) : FINAL_FLOOR), W / 2, 54);
+  }
 
   // lives (top-left, under the score)
   ctx.textAlign = 'left';
@@ -2627,9 +2768,11 @@ function drawMenu() {
   }
 
   // language toggle
-  const lbw = 112, lbh = 28, lby = 578;
-  const ldx = W / 2 - lbw - 8, lgx = W / 2 + 8;
+  const lbw = 96, lbh = 28, lby = 578, lgap = 8;
+  const rowW = lbw * 3 + lgap * 2;
+  const ldx = W / 2 - rowW / 2, bzx = ldx + lbw + lgap, lgx = bzx + lbw + lgap;
   G.dailyRect = { x: ldx, y: lby, w: lbw, h: lbh };
+  G.blitzRect = { x: bzx, y: lby, w: lbw, h: lbh };
   G.langRect = { x: lgx, y: lby, w: lbw, h: lbh };
   ctx.textAlign = 'center';
   ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
@@ -2640,6 +2783,12 @@ function drawMenu() {
   ctx.stroke();
   ctx.fillStyle = 'rgba(255,209,102,0.92)';
   ctx.fillText(t('daily'), ldx + lbw / 2, lby + 18);
+
+  ctx.strokeStyle = 'rgba(255,79,109,0.65)';
+  roundedRect(ctx, bzx, lby, lbw, lbh, 9);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,120,140,0.95)';
+  ctx.fillText(t('blitz'), bzx + lbw / 2, lby + 18);
 
   ctx.strokeStyle = 'rgba(140,160,190,0.45)';
   roundedRect(ctx, lgx, lby, lbw, lbh, 9);
@@ -3041,7 +3190,7 @@ function drawGameOver() {
   ctx.textAlign = 'center';
   ctx.font = '800 50px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#ff4f6d';
-  ctx.fillText(t('runOver'), W / 2, 206);
+  ctx.fillText(G.blitz ? t('timeUp') : t('runOver'), W / 2, 206);
 
   ctx.font = '700 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(170,188,212,0.85)';
