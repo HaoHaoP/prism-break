@@ -213,6 +213,14 @@ const CARDS = [
     apply: (u) => { u.dmg += 2; u.paddleMul *= 0.78; } },
   { id: 'volatile',name: 'VOLATILE', tag: 'RISK', max: 1, desc: () => 'Overdrive charges 40% slower but hits for 3.',
     apply: (u) => { u.chargeMul -= 0.4; u.odDmg = 3; } },
+  { id: 'vampire', name: 'VAMPIRE', tag: 'DEFENSE', max: 1, desc: () => 'Every 25 bricks on a floor restore a life.',
+    apply: (u) => { u.vampire = 1; } },
+  { id: 'arc',     name: 'ARC',     tag: 'OFFENSE', max: 2, desc: () => 'Broken bricks arc to the 2 nearest bricks.',
+    apply: (u) => { u.arc += 2; } },
+  { id: 'focus',   name: 'FOCUS',   tag: 'OFFENSE', max: 1, desc: () => 'Overdrive triggers at 70 instead of 100.',
+    apply: (u) => { u.odMax = 70; } },
+  { id: 'mirror',  name: 'MIRROR',  tag: 'CONTROL', max: 2, desc: () => 'Balls gain 8% speed off the paddle.',
+    apply: (u) => { u.mirror += 0.08; } },
 ];
 
 /* Light tones: the prism splits white light into three. Brick tone and ball tone
@@ -223,6 +231,26 @@ const TONES = [
   { name: 'AMBER',   hex: '#ffdb8a', dim: '#a3721a' },
 ];
 const FINAL_FLOOR = 10;
+
+/* Per-floor modifiers: one run-wide rule that changes how a floor plays. */
+const MODIFIERS = [
+  { id: 'swift', zh: '急流', en: 'CURRENT',  zhDesc: '球速 +15%',              enDesc: 'ball speed +15%',        speed: 1.15 },
+  { id: 'still', zh: '静滞', en: 'STILL',    zhDesc: '球速 -12%',              enDesc: 'ball speed -12%',        speed: 0.88 },
+  { id: 'dense', zh: '致密', en: 'DENSE',    zhDesc: '砖块 +1 血，得分 ×1.4',   enDesc: '+1 hp, score x1.4',      hp: 1, score: 1.4 },
+  { id: 'greed', zh: '贪婪', en: 'GREED',    zhDesc: '得分 ×1.6，球速 +8%',     enDesc: 'score x1.6, speed +8%',    speed: 1.08, score: 1.6 },
+  { id: 'swarm', zh: '蜂群', en: 'SWARM',    zhDesc: '砖块全 1 血，但得分 ×1.2', enDesc: 'all bricks 1 hp, score x1.2', hp: -99, score: 1.2 },
+  { id: 'dark',  zh: '暗场', en: 'BLACKOUT', zhDesc: '隐藏砖块血条',            enDesc: 'brick health hidden',    blackout: true },
+];
+
+function modName(m) { return LANG === 'zh' ? m.zh : m.en; }
+function modDesc(m) { return LANG === 'zh' ? m.zhDesc : m.enDesc; }
+
+function rollModifier(level) {
+  if (level <= 1) return null;
+  if (level % 5 === 0) return null;          // boss floors stay clean
+  if (Math.random() > 0.6) return null;
+  return MODIFIERS[(Math.random() * MODIFIERS.length) | 0];
+}
 
 /* ---------------- i18n ---------------- */
 
@@ -249,7 +277,7 @@ const I18N = {
     paused: '已 暂 停', resume: '按 P 继续',
     victory: '棱 镜 核 心 击 碎', allCleared: (n) => '全部 ' + n + ' 层通过',
     endless: '点击进入无尽模式',
-    resonance: '共鸣', prismShift: '棱镜换色', regrow: '再生', fork: '分裂',
+    resonance: '共鸣', prismShift: '棱镜换色', regrow: '再生', fork: '分裂', vampireHeal: '吸血 +1 命',
     shielded: '护盾保护', crit: '暴击',
     floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
     tagOffense: '攻击', tagControl: '控制', tagDefense: '防御', tagRisk: '风险',
@@ -275,7 +303,7 @@ const I18N = {
     paused: 'PAUSED', resume: 'press P to resume',
     victory: 'CORE SHATTERED', allCleared: (n) => 'all ' + n + ' floors cleared',
     endless: 'CLICK TO ENTER THE ENDLESS',
-    resonance: 'RESONANCE', prismShift: 'PRISM SHIFT', regrow: 'REGROW', fork: 'FORK',
+    resonance: 'RESONANCE', prismShift: 'PRISM SHIFT', regrow: 'REGROW', fork: 'FORK', vampireHeal: 'VAMPIRIC +1',
     shielded: 'SHIELDED', crit: 'CRIT',
     floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
     tagOffense: 'OFFENSE', tagControl: 'CONTROL', tagDefense: 'DEFENSE', tagRisk: 'RISK',
@@ -343,6 +371,10 @@ const CARD_ZH = {
   glass:    ['玻璃', '+3 伤害，球速 +18%'],
   berserk:  ['狂战', '+2 伤害，挡板窄 22%'],
   volatile: ['易爆', '充能慢 40%，超载伤害 3'],
+  vampire:  ['吸血', '每层每破 25 块砖 +1 命'],
+  arc:      ['电弧', '破砖时向最近 2 块砖放电'],
+  focus:    ['专注', '超载只需 70 能量'],
+  mirror:   ['镜面', '球撞挡板后提速 8%'],
 };
 for (const c of CARDS) {
   const z = CARD_ZH[c.id];
@@ -391,6 +423,10 @@ const G = {
   particles: [],
   shards: [],
   bolts: [],
+  hazards: [],
+  hazardTimer: 0,
+  paddleDebuff: 0,
+  layerBricks: 0,
   floaters: [],
   shieldUsed: false,
   shieldLeft: 0,
@@ -404,6 +440,7 @@ const G = {
   achToast: null,
   achToastT: 0,
   wonAt: 0,
+  mod: null,
   cardChoices: [],
   cardRects: [],
   hoverCard: -1,
@@ -431,6 +468,10 @@ function freshUpgrades() {
     chargeMul: 0,
     lance: 0,
     aegis: 0,
+    vampire: 0,
+    arc: 0,
+    odMax: 100,
+    mirror: 0,
     counts: {},
   };
 }
@@ -498,11 +539,13 @@ function bricksLeft() {
 
 function ballSpeed() {
   const comboBoost = 1 + Math.min(G.combo || 0, 30) * 0.004;   // up to +12%
-  return clamp(520 + (G.level - 1) * 10, 520, 820) * G.upg.speedMul * comboBoost;
+  const modBoost = G.mod && G.mod.speed ? G.mod.speed : 1;
+  return clamp(520 + (G.level - 1) * 10, 520, 820) * G.upg.speedMul * comboBoost * modBoost;
 }
 
 function paddleWidth() {
-  return clamp(148 * G.upg.paddleMul, 96, 320);
+  const debuff = G.paddleDebuff > 0 ? 0.72 : 1;
+  return clamp(148 * G.upg.paddleMul * debuff, 96, 320);
 }
 
 /* -------------------------- level build ------------------------ */
@@ -677,12 +720,24 @@ function startRun() {
 }
 
 function beginLevel() {
+  G.mod = rollModifier(G.level);
   G.bricks = buildLevel(G.level);
   G.stats.depthBest = Math.max(G.stats.depthBest || 0, G.level);
+  if (G.mod && G.mod.hp) {
+    for (const b of G.bricks) {
+      if (!b.breakable) continue;
+      b.hp = Math.max(1, b.hp + G.mod.hp);
+      b.maxHp = b.hp;
+    }
+  }
   G.shieldUsed = false;
   G.shieldLeft = G.upg.shield * (G.upg.aegis ? 2 : 1);
   G.balls = [];
   G.bolts.length = 0;
+  G.hazards.length = 0;
+  G.hazardTimer = 0;
+  G.paddleDebuff = 0;
+  G.layerBricks = 0;
   G.combo = 0;
   G.comboTimer = 0;
   G.paddle.w = paddleWidth();
@@ -751,6 +806,24 @@ function blastAt(b) {
   }
 }
 
+function arcFrom(b, count) {
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  const targets = G.bricks
+    .filter((o) => o.alive && o.breakable && o !== b)
+    .map((o) => ({ o, d: Math.hypot(o.x + o.w / 2 - cx, o.y + o.h / 2 - cy) }))
+    .sort((a, b2) => a.d - b2.d)
+    .slice(0, count);
+  for (const { o } of targets) {
+    const ox = o.x + o.w / 2, oy = o.y + o.h / 2;
+    for (let i = 0; i <= 6; i++) {
+      const f2 = i / 6;
+      burst(lerp(cx, ox, f2) + rand(-4, 4), lerp(cy, oy, f2) + rand(-4, 4), 1, '#bfe8ff', 30);
+    }
+    damageBrick(o, 1, ox, oy, true, -1);
+  }
+  Sound.laser();
+}
+
 function damageBrick(b, amount, fromX, fromY, chain, tone) {
   if (!b.alive || !b.breakable) return false;
 
@@ -792,15 +865,32 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
   G.comboTimer = 2.4;
   G.stats.bricks += 1;
   if (G.combo > (G.stats.comboBest || 0)) G.stats.comboBest = G.combo;
-  const gain = Math.round((10 + b.maxHp * 6) * (1 + G.combo * 0.06) * (match ? 1.6 : 1));
+  const gain = Math.round((10 + b.maxHp * 6) * (1 + G.combo * 0.06) * (match ? 1.6 : 1) * (G.mod && G.mod.score ? G.mod.score : 1));
   G.score += gain;
-  G.charge = Math.min(100, (G.charge || 0) + (match ? 13 : 7) * (1 + (G.upg.chargeMul || 0)));
+  G.charge = Math.min(odMax(), (G.charge || 0) + (match ? 13 : 7) * (1 + (G.upg.chargeMul || 0)));
   burst(b.x + b.w / 2, b.y + b.h / 2, b.boss ? 46 : 14, b.color, b.boss ? 240 : 150);
   debris(b.x + b.w / 2, b.y + b.h / 2, b.boss ? 18 : 6, b.color);
   G.shake = Math.min(G.shake + (b.boss ? 11 : 3.2), 16);
   if (b.boss) haptic(35);
   G.hitstop = Math.max(G.hitstop, b.boss ? 0.07 : 0.014);
   if (G.combo > 2 && G.floaters.length < 9) floatText(b.x + b.w / 2, b.y + b.h / 2, 'x' + G.combo, b.color);
+
+  // per-floor counters
+  G.layerBricks = (G.layerBricks || 0) + 1;
+  if (G.upg.vampire && G.layerBricks % 25 === 0) {
+    G.lives += 1;
+    if (G.floaters.length < 9) floatText(b.x + b.w / 2, b.y - 20, t('vampireHeal'), '#7dffb0');
+    Sound.card();
+  }
+
+  // combo milestones top up the overdrive
+  if (G.combo === 10 || G.combo === 20 || G.combo === 30 || G.combo === 40) {
+    G.charge = Math.min(odMax(), G.charge + 18);
+    if (G.floaters.length < 9) floatText(W / 2, H * 0.42, t('combo') + ' ' + G.combo, '#ffd166');
+    Sound.resonance();
+  }
+
+  if (!chain && G.upg.arc) arcFrom(b, G.upg.arc);
 
   // bombs chain on their own; the blast upgrade makes everything a bomb
   if ((G.upg.blast || b.kind === 'bomb') && !chain) blastAt(b);
@@ -938,8 +1028,10 @@ function setTone(t) {
   for (const b of G.balls) burst(b.x, b.y, 5, TONES[G.tone].hex, 70);
 }
 
+function odMax() { return G.upg.odMax || 100; }
+
 function tryOverdrive() {
-  if (G.state !== 'playing' || G.charge < 100) return;
+  if (G.state !== 'playing' || G.charge < odMax()) return;
   G.slowTimer = 1.15;
   G.flash = 1;
   G.shake = 16;
@@ -1086,7 +1178,7 @@ function updateBalls(dt) {
           let rel = clamp((b.x - p.x) / (p.w / 2), -1, 1);
           if (Math.abs(rel) < 0.09) rel = (Math.random() < 0.5 ? -0.09 : 0.09);
           const angle = rel * 1.02;
-          const sp = clamp(Math.hypot(b.vx, b.vy) * 1.008, ballSpeed() * 0.94, ballSpeed() * 1.28);
+          const sp = clamp(Math.hypot(b.vx, b.vy) * (1.008 + (G.upg.mirror || 0)), ballSpeed() * 0.94, ballSpeed() * 1.4);
           b.vx = Math.sin(angle) * sp + p.vx * 0.14;
           b.vy = -Math.abs(Math.cos(angle) * sp);
           b.y = p.y - b.r - 0.6;
@@ -1201,6 +1293,41 @@ function updateBalls(dt) {
   }
 }
 
+function updateHazards(dt) {
+  const boss = G.bricks.find((b) => b.boss && b.alive);
+  if (boss) {
+    G.hazardTimer += dt;
+    if (G.hazardTimer > 7) {
+      G.hazardTimer = 0;
+      G.hazards.push({ x: boss.x + rand(20, boss.w - 20), y: boss.y + boss.h + 4, vy: 230, r: 9, spin: 0 });
+      Sound.tone(190, 0.22, 'sawtooth', 0.05, 90);
+    }
+  }
+  const p = G.paddle;
+  for (let i = G.hazards.length - 1; i >= 0; i--) {
+    const h = G.hazards[i];
+    h.y += h.vy * dt;
+    h.vy = Math.min(h.vy + 40 * dt, 330);
+    h.spin += dt * 6;
+    if (h.y > H + 24) { G.hazards.splice(i, 1); continue; }
+    if (h.y + h.r > p.y && h.y - h.r < p.y + p.h && Math.abs(h.x - p.x) < p.w / 2 + h.r) {
+      G.paddleDebuff = 3.2;
+      G.paddle.w = paddleWidth();
+      burst(h.x, h.y, 16, '#ff4f6d', 170);
+      haptic(30);
+      Sound.lose();
+      G.hazards.splice(i, 1);
+    }
+  }
+  if (G.paddleDebuff > 0) {
+    G.paddleDebuff -= dt;
+    if (G.paddleDebuff <= 0) {
+      G.paddleDebuff = 0;
+      G.paddle.w = paddleWidth();
+    }
+  }
+}
+
 function updateBolts(dt) {
   if (G.upg.laser > 0) {
     G.laserTimer = (G.laserTimer || 0) + dt;
@@ -1290,6 +1417,7 @@ function update(dt) {
     updatePaddle(dt);
     updateBalls(dt);
     updateBolts(dt);
+    updateHazards(dt);
     if (G.comboTimer > 0) {
       G.comboTimer -= dt;
       if (G.comboTimer <= 0) G.combo = 0;
@@ -1370,7 +1498,7 @@ function drawBricks() {
     }
 
     // tough bricks get a heavier top bar instead of hp dots
-    if (b.breakable && b.maxHp > 1 && b.kind === 'plain' && b.hp < b.maxHp) {
+    if (b.breakable && b.maxHp > 1 && b.kind === 'plain' && b.hp < b.maxHp && !(G.mod && G.mod.blackout)) {
       const filled = clamp(b.hp / b.maxHp, 0, 1);
       ctx.globalAlpha = 0.9;
       ctx.fillStyle = 'rgba(255,255,255,' + (0.55 + filled * 0.4) + ')';
@@ -1483,6 +1611,26 @@ function drawBalls() {
   }
 }
 
+function drawHazards() {
+  for (const h of G.hazards) {
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    ctx.rotate(h.spin);
+    ctx.fillStyle = 'rgba(255,79,109,0.92)';
+    ctx.beginPath();
+    ctx.moveTo(0, -h.r);
+    ctx.lineTo(h.r * 0.8, 0);
+    ctx.lineTo(0, h.r);
+    ctx.lineTo(-h.r * 0.8, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,180,190,0.9)';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 function drawBolts() {
   ctx.strokeStyle = '#ffd166';
   ctx.lineWidth = 3;
@@ -1566,6 +1714,13 @@ function drawHud() {
     ctx.fill();
   }
 
+  if (G.mod) {
+    ctx.textAlign = 'left';
+    ctx.font = '700 12px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = 'rgba(255,209,102,0.9)';
+    ctx.fillText(modName(G.mod) + '  ·  ' + modDesc(G.mod), 20, 100);
+  }
+
   for (let i = 0; i < (G.shieldLeft || 0); i++) {
     ctx.fillStyle = 'rgba(139,92,246,0.9)';
     ctx.fillRect(20 + i * 13, 86, 9, 9);
@@ -1599,14 +1754,14 @@ function drawHud() {
   ctx.fillStyle = 'rgba(255,255,255,0.09)';
   roundedRect(ctx, mx, my, mw, mh, 4.5);
   ctx.fill();
-  const full = G.charge >= 100;
+  const full = G.charge >= odMax();
   const cg = ctx.createLinearGradient(mx, 0, mx + mw, 0);
   cg.addColorStop(0, TONES[0].hex);
   cg.addColorStop(0.5, TONES[1].hex);
   cg.addColorStop(1, TONES[2].hex);
   ctx.globalAlpha = full ? 0.55 + Math.abs(Math.sin(G.time * 6)) * 0.45 : 0.9;
   ctx.fillStyle = cg;
-  roundedRect(ctx, mx, my, Math.max(5, mw * clamp(G.charge / 100, 0, 1)), mh, 4.5);
+  roundedRect(ctx, mx, my, Math.max(5, mw * clamp(G.charge / odMax(), 0, 1)), mh, 4.5);
   ctx.fill();
   ctx.globalAlpha = 1;
   ctx.textAlign = 'center';
@@ -1976,6 +2131,33 @@ function drawCardIcon(id, look) {
       ctx.moveTo(8, -10); ctx.quadraticCurveTo(16, -22, 6, -24);
       ctx.stroke();
       break;
+    case 'vampire':
+      ctx.beginPath();
+      ctx.moveTo(-14, -6); ctx.lineTo(-6, 20); ctx.lineTo(0, -2); ctx.lineTo(6, 20); ctx.lineTo(14, -6);
+      ctx.stroke();
+      break;
+    case 'arc':
+      ctx.beginPath();
+      ctx.moveTo(-6, -24); ctx.lineTo(-16, -2); ctx.lineTo(-2, -2); ctx.lineTo(-10, 24);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(6, -20); ctx.lineTo(16, 0); ctx.lineTo(2, 0); ctx.lineTo(10, 22);
+      ctx.stroke();
+      break;
+    case 'focus':
+      ctx.beginPath(); ctx.arc(0, 0, 22, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, 11, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, 3, 0, TAU); ctx.fill();
+      break;
+    case 'mirror':
+      ctx.beginPath();
+      ctx.moveTo(0, -22); ctx.lineTo(0, 22);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-20, -4); ctx.lineTo(-8, -4); ctx.moveTo(-20, 4); ctx.lineTo(-8, 4);
+      ctx.moveTo(8, -4); ctx.lineTo(20, -4); ctx.moveTo(8, 4); ctx.lineTo(20, 4);
+      ctx.stroke();
+      break;
     default:
       ctx.beginPath(); ctx.arc(0, 0, 20, 0, TAU); ctx.stroke();
   }
@@ -2135,6 +2317,7 @@ function render() {
   if (G.state !== 'menu') {
     drawBricks();
     drawBolts();
+    drawHazards();
     drawPaddle();
     drawBalls();
     drawParticles();
