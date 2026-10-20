@@ -1186,7 +1186,15 @@ function onPointerDown(clientX, clientY) {
     }
     const or2 = G.odRect;
     if (or2 && p.x >= or2.x && p.x <= or2.x + or2.w && p.y >= or2.y && p.y <= or2.y + or2.h) {
-      tryOverdrive();
+      if (G.charge >= odMax()) {
+        tryOverdrive();
+      } else {
+        // tell the player why nothing happened
+        const pct = Math.round((G.charge / odMax()) * 100);
+        if (G.floaters.length < 9) floatText(W / 2, H - 60, t('overdrive') + ' ' + pct + '%', '#ffd166');
+        Sound.shift();
+        haptic(8);
+      }
       return;
     }
     const fr = G.fuseRect;
@@ -2119,7 +2127,7 @@ function drawHud() {
 
   // ---- overdrive meter (bottom-centre) ----
   const mw = 250, mx = W / 2 - mw / 2, my = H - 26, mh = 9;
-  G.odRect = { x: mx, y: my - 14, w: mw, h: mh + 24 };
+  G.odRect = { x: mx - 10, y: my - 24, w: mw + 20, h: mh + 44 };
   ctx.fillStyle = 'rgba(255,255,255,0.09)';
   roundedRect(ctx, mx, my, mw, mh, 4.5);
   ctx.fill();
@@ -2137,6 +2145,12 @@ function drawHud() {
   ctx.font = '700 10px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = full ? '#ffd166' : 'rgba(150,170,200,0.75)';
   ctx.fillText(full ? t('odReady') : t('overdrive'), W / 2, my - 6);
+  if (full) {
+    ctx.strokeStyle = 'rgba(255,209,102,' + (0.4 + Math.abs(Math.sin(G.time * 6)) * 0.5) + ')';
+    ctx.lineWidth = 1.6;
+    roundedRect(ctx, mx - 4, my - 4, mw + 8, mh + 8, mh);
+    ctx.stroke();
+  }
 
   // achievement toast
   if (G.achToastT > 0 && G.achToast) {
