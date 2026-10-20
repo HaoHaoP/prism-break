@@ -53,6 +53,10 @@
 
 标题界面会记住你的累计局数、破砖总数与成就进度。五个成就：击碎核心、连击 25、一击 12 块、下潜 15 层、千砖。全部本地存档，不上传任何数据。
 
+## 每日挑战
+
+标题界面左下角的「每日挑战」按钮会用**当天日期做随机种子**——所有人都拿到同一套层规则和同样的三选一顺序。同一天内可以反复重试刷分，今日最佳会显示在按钮下方。
+
 ## 装到手机
 
 用手机浏览器打开站点，菜单里可以「添加到主屏幕」—— 带 manifest 与图标，启动后是全屏横屏，没有地址栏。触摸是**相对拖动**：手指在屏幕任意位置滑动即可，不会挡住挡板。
@@ -100,6 +104,10 @@ Breaking bricks charges the meter. At full, `SHIFT` fires a prism burst: every b
 ## Stats and achievements
 
 The title screen tracks lifetime runs, bricks broken and five achievements (clear the core, a 25 combo, a 12-brick burst, floor 15, a thousand bricks). Everything stays in `localStorage` — nothing is uploaded.
+
+## Daily run
+
+The DAILY RUN button on the title screen seeds the RNG with today's date, so everyone gets the same floor modifiers and the same card offers. Retry as often as you like; today's best score is shown under the button.
 
 ## On a phone
 
