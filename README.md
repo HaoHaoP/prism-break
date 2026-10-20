@@ -12,6 +12,14 @@
 
 **球色与砖色相同 → 伤害翻倍**，得分更高，超载槽充得更快。于是每一秒你都在做选择：追球，还是花半拍切个色去打对的那一列。
 
+### 染光连锁
+
+连着三次用**同一光色**命中，会引爆全场所有该色的砖 —— 一次能清掉整屏三分之一。切色、或打到异色砖，连锁就断。所以真正的技巧不是「追球」，而是**在球乱飞的情况下保持打对颜色**。
+
+### 合光
+
+场上有两颗以上球时按 `F`：所有球塌缩成一道竖直光束，从挡板一路扫上去，路径上的砖全部融化（冷却 12 秒）。代价是所有球都没了，只剩一颗重新发球 —— 多球既是火力也是安全网，用它来赌。
+
 另外每层都混着特殊的砖：会**再生**的、被击中会**翻转你的光色**的、破了会**炸开邻居**的、永远不会碎的钢柱，还有会**整行左右漂移**的砖墙。
 
 ## 层规则
@@ -32,6 +40,7 @@
 | `Q` / `E` | 切换光色（也可点左下角色块） |
 | `1` `2` `3` | 直接跳到某一种色 |
 | `SHIFT` | 充满后释放**超载爆发** |
+| `F` | 两颗以上球时释放**合光**扫射 |
 | 鼠标 / 方向键 | 移动挡板（手机上是按住拖动） |
 | 点击 / 空格 | 发球 |
 | `P` | 暂停 · `M` 静音 · `L` 中英切换 |
@@ -84,6 +93,14 @@ A neon brick-breaker roguelike in a single HTML file. No build step, no dependen
 
 The ball carries one of three light tones — cyan, violet, amber — and every brick is tinted with one of the same three. Hitting a matching brick deals **double damage**, scores more and charges your overdrive faster.
 
+### Lit chain
+
+Land three hits **in a row with the same light tone** and every brick of that tone on the floor detonates at once — often a third of the board. Switching tone or clipping an off-tone brick breaks the streak. The real skill is holding the right colour while the ball does whatever it wants.
+
+### Fusion
+
+With two or more balls alive, press `F`: every ball collapses into a single vertical beam that sweeps up from the paddle and melts everything in its path (12s cooldown). You spend your whole board to do it and get one ball back — multi-ball is both your firepower and your safety net.
+
 Floors also mix in **regenerating** bricks, **prism cores** that flip your tone on contact, **bombs** that chain to neighbours, indestructible steel struts, and rows that **drift sideways**.
 
 ## Floor modifiers
@@ -120,6 +137,7 @@ Open the site on a mobile browser and add it to the home screen: the web app man
 | `Q` / `E` | shift light tone |
 | `1` `2` `3` | jump to a tone |
 | `Shift` | spend a full overdrive meter |
+| `F` | fuse every ball into one beam (needs 2+) |
 | mouse / arrows | move paddle |
 | click / space | launch ball |
 | `P` pause · `M` mute · `L` language | |

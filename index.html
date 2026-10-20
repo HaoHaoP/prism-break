@@ -288,6 +288,7 @@ const I18N = {
     moveVal: '鼠标 / 方向键', launchVal: '点击 / 空格',
     lightVal: 'Q / E —— 对准砖块同色',
     odVal: '充能满时按 SHIFT',
+    fusionK: '合光', fusionVal: '2 球以上按 F 合并扫射',
     floorsVal: (n) => n + ' 层',
     start: '点 击 开 始',
     bestLine: (b, f) => '最高 ' + b + (f ? '   ·   最深层 ' + f : ''),
@@ -296,12 +297,13 @@ const I18N = {
     pickHint: '点击卡牌，或按 1 / 2 / 3',
     lv: (a, b) => '等级 ' + a + ' → ' + b,
     runOver: '本 局 结 束', newBest: '新 纪 录 !', loadout: '本局卡组',
-    again: '点击再来一局',
+    again: '点击再来一局', copyReport: '复制战报  C', copied: '已复制到剪贴板',
     paused: '已 暂 停', resume: '按 P 继续',
     victory: '棱 镜 核 心 击 碎', allCleared: (n) => '全部 ' + n + ' 层通过',
     endless: '点击进入无尽模式',
     resonance: '共鸣', prismShift: '棱镜换色', regrow: '再生', fork: '分裂', vampireHeal: '吸血 +1 命',
-    shielded: '护盾保护', crit: '暴击',
+    shielded: '护盾保护', crit: '暴击', enraged: '核心狂暴',
+    chain: '染光连锁', fusion: '合 光', fusionReady: '合光 F', fusionCool: '合光',
     floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
     tagOffense: '攻击', tagControl: '控制', tagDefense: '防御', tagRisk: '风险',
     langBtn: 'EN', daily: '每 日 挑 战', dailyBest: '今日最佳',
@@ -314,6 +316,7 @@ const I18N = {
     moveVal: 'mouse / arrows', launchVal: 'click / space',
     lightVal: 'Q / E — match the brick tone',
     odVal: 'SHIFT when the meter fills',
+    fusionK: 'FUSION', fusionVal: '2+ balls: F fires one beam',
     floorsVal: (n) => n + ' floors',
     start: 'CLICK TO START',
     bestLine: (b, f) => 'BEST ' + b + (f ? '   ·   DEEPEST FLOOR ' + f : ''),
@@ -322,12 +325,13 @@ const I18N = {
     pickHint: 'click a card, or press 1 / 2 / 3',
     lv: (a, b) => 'LV ' + a + ' → ' + b,
     runOver: 'RUN OVER', newBest: 'NEW BEST!', loadout: 'LOADOUT',
-    again: 'CLICK TO RUN AGAIN',
+    again: 'CLICK TO RUN AGAIN', copyReport: 'COPY REPORT  C', copied: 'COPIED',
     paused: 'PAUSED', resume: 'press P to resume',
     victory: 'CORE SHATTERED', allCleared: (n) => 'all ' + n + ' floors cleared',
     endless: 'CLICK TO ENTER THE ENDLESS',
     resonance: 'RESONANCE', prismShift: 'PRISM SHIFT', regrow: 'REGROW', fork: 'FORK', vampireHeal: 'VAMPIRIC +1',
-    shielded: 'SHIELDED', crit: 'CRIT',
+    shielded: 'SHIELDED', crit: 'CRIT', enraged: 'ENRAGED',
+    chain: 'LIT CHAIN', fusion: 'FUSION', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
     tagOffense: 'OFFENSE', tagControl: 'CONTROL', tagDefense: 'DEFENSE', tagRisk: 'RISK',
     langBtn: '中文', daily: 'DAILY RUN', dailyBest: "TODAY'S BEST",
@@ -445,11 +449,19 @@ const G = {
   bricks: [],
   particles: [],
   shards: [],
+  shockwaves: [],
   bolts: [],
   hazards: [],
   hazardTimer: 0,
   paddleDebuff: 0,
   layerBricks: 0,
+  toneChain: 0,
+  fusionCD: 0,
+  fusionBeam: null,
+  fuseRect: null,
+  runReso: 0,
+  runOdKills: 0,
+  copied: 0,
   floaters: [],
   shieldUsed: false,
   shieldLeft: 0,
@@ -499,6 +511,41 @@ function freshUpgrades() {
     mirror: 0,
     counts: {},
   };
+}
+
+function runReport() {
+  const taken = G.upg ? CARDS.filter((c) => (G.upg.counts[c.id] || 0) > 0) : [];
+  const names = taken.map((c) => (LANG === 'zh' && c.zh ? c.zh : c.name)).join('/');
+  if (LANG === 'zh') {
+    return '棱镜爆破' + (G.daily ? '·每日挑战' : '') + ' 第 ' + G.level + ' 层 ' + G.score + ' 分'
+      + (G.runReso ? ' 共鸣' + G.runReso + '次' : '')
+      + (G.runOdKills ? ' 超载破' + G.runOdKills + '块' : '')
+      + (names ? ' 卡组:' + names : '')
+      + ' — prism.haohaop.com';
+  }
+  return 'PRISM BREAK' + (G.daily ? ' daily' : '') + ' — floor ' + G.level + ', ' + G.score + ' pts'
+    + (G.runReso ? ', ' + G.runReso + ' resonances' : '')
+    + (G.runOdKills ? ', ' + G.runOdKills + ' overdrive kills' : '')
+    + (names ? ', build: ' + names : '')
+    + ' — prism.haohaop.com';
+}
+
+function copyReport() {
+  const text = runReport();
+  const done = () => { G.copied = 2.2; };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(done);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done();
+    }
+  } catch (e) { done(); }
 }
 
 function loadStats() {
@@ -636,7 +683,9 @@ function buildLevel(level) {
       }
 
       const bx = startX + c * (cw + gap);
-      const tone = (r * 2 + c + level) % 3;
+      // 2x2 clusters of the same tone: neighbouring bricks share a colour so
+      // same-tone hits can actually light up and chain
+      const tone = (Math.floor(r / 2) * 2 + Math.floor(c / 2) + level) % 3;
       const sweep = (r === sweepRow && level % 2 === 0)
         ? { amp: 24, speed: 0.5, phase: c * 0.25 }
         : null;
@@ -658,37 +707,61 @@ function buildLevel(level) {
         sweep,
         regenTimer: 0,
         flash: 0,
+        lit: false,
         wobble: rand(0, TAU),
       });
     }
   }
 
-  // boss floor: a core prism that stays immune until its shield plates are gone
+  // boss floor: a core prism that stays immune until its shield plates are gone.
+  // Every tenth floor throws two of them at you at once.
   if (level % 5 === 0) {
-    const bw = cw * 4 + gap * 3;
-    const bx = (W - bw) / 2;
     const by = startY + rows * (ch + gap) + 10;
-    bricks.push({
-      x: bx, baseX: bx, y: by, w: bw, h: ch * 2 + gap,
-      hp: 6 + Math.floor(level / 5) * 3, maxHp: 6 + Math.floor(level / 5) * 3,
-      breakable: true, alive: true, boss: true, tone: -1, kind: 'boss',
-      color: '#ffe9a8', dimColor: '#6a4f14',
-      sweep: null, regenTimer: 0, flash: 0, wobble: 0,
-    });
+    const bossH = ch * 2 + gap;
     const sW = 58, sH = 22;
-    const shields = [
-      { x: bx - sW - 12, y: by + (ch * 2 + gap) / 2 - sH / 2 },
-      { x: bx + bw + 12, y: by + (ch * 2 + gap) / 2 - sH / 2 },
-      { x: W / 2 - sW / 2, y: by + ch * 2 + gap + 10 },
-    ];
-    for (const s of shields) {
+    const twin = level % 10 === 0;
+
+    const pushBoss = (bx, bw, hp) => {
       bricks.push({
-        x: s.x, baseX: s.x, y: s.y, w: sW, h: sH,
-        hp: 3, maxHp: 3, breakable: true, alive: true,
-        tone: -1, kind: 'shield',
+        x: bx, baseX: bx, y: by, w: bw, h: bossH,
+        hp, maxHp: hp,
+        breakable: true, alive: true, boss: true, tone: -1, kind: 'boss',
+        color: twin ? '#ffd0d8' : '#ffe9a8', dimColor: twin ? '#7a2233' : '#6a4f14',
+        sweep: null, regenTimer: 0, flash: 0, wobble: 0,
+      });
+      bricks.push({
+        x: bx + bw / 2 - sW / 2, baseX: bx + bw / 2 - sW / 2, y: by + bossH + 10,
+        w: sW, h: sH,
+        hp: twin ? 2 : 3, maxHp: twin ? 2 : 3,
+        breakable: true, alive: true, tone: -1, kind: 'shield',
         color: '#8fb0ff', dimColor: '#243a66',
         sweep: null, regenTimer: 0, flash: 0, wobble: 0,
       });
+    };
+
+    if (twin) {
+      const bw2 = cw * 2 + gap;
+      const spread = 64;
+      const totalW = bw2 * 2 + spread;
+      const x0 = (W - totalW) / 2;
+      const hpEach = 5 + Math.floor(level / 5) * 2;
+      pushBoss(x0, bw2, hpEach);
+      pushBoss(x0 + bw2 + spread, bw2, hpEach);
+    } else {
+      const bw = cw * 4 + gap * 3;
+      const bx = (W - bw) / 2;
+      pushBoss(bx, bw, 6 + Math.floor(level / 5) * 3);
+      // two extra side plates on the single core
+      const sideY = by + bossH / 2 - sH / 2;
+      for (const sx of [bx - sW - 12, bx + bw + 12]) {
+        bricks.push({
+          x: sx, baseX: sx, y: sideY, w: sW, h: sH,
+          hp: 3, maxHp: 3,
+          breakable: true, alive: true, tone: -1, kind: 'shield',
+          color: '#8fb0ff', dimColor: '#243a66',
+          sweep: null, regenTimer: 0, flash: 0, wobble: 0,
+        });
+      }
     }
   }
 
@@ -735,6 +808,12 @@ function startRun(daily) {
   G.lives = 3;
   G.combo = 0;
   G.comboTimer = 0;
+  G.runReso = 0;
+  G.toneChain = 0;
+  G.runOdKills = 0;
+  G.fusionCD = 0;
+  G.fusionBeam = null;
+  G.copied = 0;
   G.particles.length = 0;
   G.shards.length = 0;
   G.bolts.length = 0;
@@ -800,6 +879,11 @@ function burst(x, y, n, color, speed) {
   }
 }
 
+function shockwave(x, y, color) {
+  if (G.shockwaves.length > 24) return;
+  G.shockwaves.push({ x, y, r: 8, life: 0.42, max: 0.42, color });
+}
+
 function haptic(ms) {
   if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} }
 }
@@ -839,6 +923,29 @@ function blastAt(b) {
   }
 }
 
+/* Lit bricks link up: hit same-tone bricks in a row and the connected cluster
+   detonates as one chain. This is the damage engine of the game. */
+function spreadFrom(b) {
+  const tone = b.tone;
+  const seen = new Set([b]);
+  const stack = [b];
+  const group = [b];
+  while (stack.length) {
+    const cur = stack.pop();
+    const cx = cur.x + cur.w / 2, cy = cur.y + cur.h / 2;
+    for (const o of G.bricks) {
+      if (seen.has(o) || !o.alive || !o.breakable || !o.lit || o.tone !== tone) continue;
+      const ox = o.x + o.w / 2, oy = o.y + o.h / 2;
+      if (Math.abs(ox - cx) < cur.w * 1.15 && Math.abs(oy - cy) < cur.h * 1.7) {
+        seen.add(o);
+        stack.push(o);
+        group.push(o);
+      }
+    }
+  }
+  return group;
+}
+
 function arcFrom(b, count) {
   const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
   const targets = G.bricks
@@ -872,13 +979,53 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
   let match = false;
   if (!chain && tone !== undefined && tone >= 0 && b.tone === tone) {
     match = true;
+    G.runReso = (G.runReso || 0) + 1;
     amount *= 2 + (G.upg.resoBonus || 0);
     if (G.floaters.length < 5) floatText(b.x + b.w / 2, b.y - 4, t('resonance'), TONES[tone].hex);
     Sound.resonance();
   }
 
+  // Three same-tone hits in a row detonate every brick of that tone on the floor.
+  // Switch tone or hit an off-tone brick and the streak resets.
+  if (!chain) {
+    if (match) {
+      G.toneChain = (G.toneChain || 0) + 1;
+      b.lit = true;
+      if (G.toneChain >= 3) {
+        G.toneChain = 0;
+        G.charge = Math.min(odMax(), G.charge + 12);
+        if (G.floaters.length < 9) floatText(W / 2, H * 0.36, t('chain'), TONES[b.tone].hex);
+        Sound.resonance();
+        haptic(22);
+        G.shake = Math.min(G.shake + 6, 16);
+        G.flash = Math.max(G.flash, 0.35);
+        for (const o of G.bricks) {
+          if (o.alive && o.breakable && o.tone === b.tone) {
+            burst(o.x + o.w / 2, o.y + o.h / 2, 6, TONES[b.tone].hex, 130);
+            damageBrick(o, 1, o.x + o.w / 2, o.y + o.h / 2, true, -1);
+          }
+        }
+      }
+    } else if (!b.boss) {
+      G.toneChain = 0;
+    }
+  }
+
   b.hp -= amount;
   b.flash = 1;
+
+  // the core enrages at half health: faster orbs, and it opens with a volley
+  if (b.boss && !b.phase2 && b.hp <= b.maxHp / 2 && b.hp > 0) {
+    b.phase2 = true;
+    G.flash = Math.max(G.flash, 0.75);
+    G.shake = 16;
+    Sound.tone(90, 0.55, 'sawtooth', 0.09, 42);
+    haptic(50);
+    if (G.floaters.length < 9) floatText(b.x + b.w / 2, b.y - 14, t('enraged'), '#ff4f6d');
+    for (const f2 of [0.25, 0.75]) {
+      G.hazards.push({ x: b.x + b.w * f2, y: b.y + b.h + 4, vy: 250, r: 9, spin: 0 });
+    }
+  }
 
   // a prism core brick swaps your light on contact
   if (b.kind === 'core' && !chain) {
@@ -887,7 +1034,7 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
   }
 
   if (b.hp > 0) {
-    Sound.brick(b.hp);
+    Sound.brick(Math.min(12, b.hp + Math.floor((G.combo || 0) / 4)));
     burst(fromX, fromY, 3, b.color, 90);
     return false;
   }
@@ -898,7 +1045,8 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
   G.comboTimer = 2.4;
   G.stats.bricks += 1;
   if (G.combo > (G.stats.comboBest || 0)) G.stats.comboBest = G.combo;
-  const gain = Math.round((10 + b.maxHp * 6) * (1 + G.combo * 0.06) * (match ? 1.6 : 1) * (G.mod && G.mod.score ? G.mod.score : 1));
+  const gain = Math.round((10 + b.maxHp * 6) * (1 + G.combo * 0.06) * (match ? 1.6 : 1)
+    * (G.mod && G.mod.score ? G.mod.score : 1));
   G.score += gain;
   G.charge = Math.min(odMax(), (G.charge || 0) + (match ? 13 : 7) * (1 + (G.upg.chargeMul || 0)));
   burst(b.x + b.w / 2, b.y + b.h / 2, b.boss ? 46 : 14, b.color, b.boss ? 240 : 150);
@@ -917,6 +1065,14 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
   }
 
   // combo milestones top up the overdrive
+  if ((G.combo === 15 || G.combo === 30) && G.balls.length < 8) {
+    const nb2 = spawnBall(false);
+    nb2.minion = true;
+    nb2.life = 8;
+    nb2.pierces = 0;
+    G.balls.push(nb2);
+    if (G.floaters.length < 9) floatText(W / 2, H * 0.46, t('combo') + ' ' + G.combo, '#ff4fd8');
+  }
   if (G.combo === 10 || G.combo === 20 || G.combo === 30 || G.combo === 40) {
     G.charge = Math.min(odMax(), G.charge + 18);
     if (G.floaters.length < 9) floatText(W / 2, H * 0.42, t('combo') + ' ' + G.combo, '#ffd166');
@@ -989,6 +1145,11 @@ function onPointerDown(clientX, clientY) {
     return;
   }
   if (G.state === 'gameover') {
+    const cr2 = G.copyRect;
+    if (cr2 && p.x >= cr2.x && p.x <= cr2.x + cr2.w && p.y >= cr2.y && p.y <= cr2.y + cr2.h) {
+      copyReport();
+      return;
+    }
     if (G.time - (G.deadAt || 0) > 0.6) startRun(G.daily);
     return;
   }
@@ -1010,6 +1171,11 @@ function onPointerDown(clientX, clientY) {
   }
   if (G.portraitHint) { G.portraitDismissed = true; G.portraitHint = false; return; }
   if (G.state === 'playing') {
+    const fr = G.fuseRect;
+    if (fr && p.x >= fr.x && p.x <= fr.x + fr.w && p.y >= fr.y && p.y <= fr.y + fr.h) {
+      tryFusion();
+      return;
+    }
     for (const r of G.toneRects) {
       if (p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h) { setTone(r.tone); return; }
     }
@@ -1061,12 +1227,50 @@ function offeringCards() {
 
 function setTone(t) {
   if (G.tone === t) return;
+  G.toneChain = 0;
   G.tone = ((t % 3) + 3) % 3;
   Sound.shift();
   for (const b of G.balls) burst(b.x, b.y, 5, TONES[G.tone].hex, 70);
 }
 
 function odMax() { return G.upg.odMax || 100; }
+
+/* FUSION: collapse every ball on the board into one vertical light beam.
+   Multi-ball is the ammunition, so the strongest attack spends your safety net. */
+function tryFusion() {
+  if (G.state !== 'playing' || G.fusionCD > 0 || G.balls.length < 2) return;
+  G.fusionCD = 12;
+  G.balls.length = 0;
+  G.fusionBeam = { x: G.paddle.x, t: 1.0, w: Math.max(96, G.paddle.w * 0.9), tick: 0 };
+  G.flash = Math.max(G.flash, 0.5);
+  G.shake = 12;
+  Sound.overdrive();
+  haptic(32);
+  if (G.floaters.length < 9) floatText(W / 2, H * 0.34, t('fusion'), '#ffffff');
+}
+
+function updateFusion(dt) {
+  if (G.fusionCD > 0) G.fusionCD = Math.max(0, G.fusionCD - dt);
+  const fb = G.fusionBeam;
+  if (!fb) return;
+  fb.t -= dt;
+  fb.tick -= dt;
+  fb.x += (G.paddle.x - fb.x) * Math.min(1, dt * 6);
+  if (fb.tick <= 0) {
+    fb.tick = 0.11;
+    for (const b of G.bricks) {
+      if (!b.alive || !b.breakable) continue;
+      const bx = b.x + b.w / 2;
+      if (Math.abs(bx - fb.x) < fb.w / 2 + b.w / 2) {
+        damageBrick(b, 1, bx, b.y + b.h / 2, true, -1);
+      }
+    }
+  }
+  if (fb.t <= 0) {
+    G.fusionBeam = null;
+    G.balls.push(spawnBall(true));
+  }
+}
 
 function tryOverdrive() {
   if (G.state !== 'playing' || G.charge < odMax()) return;
@@ -1084,6 +1288,7 @@ function tryOverdrive() {
     }
   }
   if (burstKills > (G.stats.burstBest || 0)) G.stats.burstBest = burstKills;
+  G.runOdKills = (G.runOdKills || 0) + burstKills;
   checkAchievements();
   G.charge = 0;
   floatText(W / 2, H / 2 - 60, t('overdrive'), '#ffd166');
@@ -1223,6 +1428,7 @@ function updateBalls(dt) {
           b.idle = Math.min(b.idle, 0.9);
           Sound.paddle();
           burst(b.x, p.y, 4, '#54f2ff', 80);
+          shockwave(b.x, p.y, TONES[G.tone].hex);
           if (G.upg.fork > 0 && RNG() < G.upg.fork && G.balls.length < 9) {
             const nb = spawnBall(false);
             nb.x = b.x;
@@ -1311,13 +1517,14 @@ function updateBalls(dt) {
     if (b.trail.length > 9) b.trail.shift();
   }
 
-  if (G.balls.length === 0) {
+  if (G.balls.length === 0 && !G.fusionBeam) {
     G.lives -= 1;
     G.shake = 12;
     G.flash = 0.6;
     Sound.lose();
     if (G.lives <= 0) {
       G.state = 'gameover';
+      G.tip = 0;
       Music.stop();
       G.deadAt = G.time;
       haptic(60);
@@ -1335,7 +1542,7 @@ function updateHazards(dt) {
   const boss = G.bricks.find((b) => b.boss && b.alive);
   if (boss) {
     G.hazardTimer += dt;
-    if (G.hazardTimer > 7) {
+    if (G.hazardTimer > (boss.phase2 ? 3.6 : 7)) {
       G.hazardTimer = 0;
       G.hazards.push({ x: boss.x + rand(20, boss.w - 20), y: boss.y + boss.h + 4, vy: 230, r: 9, spin: 0 });
       Sound.tone(190, 0.22, 'sawtooth', 0.05, 90);
@@ -1404,6 +1611,12 @@ function updateParticles(dt) {
     p.vx *= 0.965;
     p.vy = p.vy * 0.965 + 260 * dt;
   }
+  for (let i = G.shockwaves.length - 1; i >= 0; i--) {
+    const s = G.shockwaves[i];
+    s.life -= dt;
+    s.r += 460 * dt;
+    if (s.life <= 0) G.shockwaves.splice(i, 1);
+  }
   for (let i = G.shards.length - 1; i >= 0; i--) {
     const s = G.shards[i];
     s.life -= dt;
@@ -1429,6 +1642,7 @@ function update(dt) {
     G.slowTimer -= dt;
     dt *= 0.34;
   }
+
   if (G.hitstop > 0) { G.hitstop -= dt; dt = Math.max(dt - 0.014, 0.0005); }
   G.shake = Math.max(0, G.shake - dt * 34);
   G.flash = Math.max(0, G.flash - dt * 2.2);
@@ -1456,6 +1670,7 @@ function update(dt) {
     updateBalls(dt);
     updateBolts(dt);
     updateHazards(dt);
+    updateFusion(dt);
     if (G.comboTimer > 0) {
       G.comboTimer -= dt;
       if (G.comboTimer <= 0) G.combo = 0;
@@ -1518,6 +1733,15 @@ function drawBricks() {
     roundedRect(ctx, b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 5);
     ctx.stroke();
     ctx.globalAlpha = 1;
+
+    if (b.lit) {
+      ctx.globalAlpha = 0.35 + Math.abs(Math.sin(b.wobble * 3)) * 0.45;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.4;
+      roundedRect(ctx, b.x + 1, b.y + 1, b.w - 2, b.h - 2, 5);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
 
     // top bevel
     ctx.globalAlpha = b.breakable ? 0.5 : 0.25;
@@ -1583,7 +1807,8 @@ function drawBricks() {
     }
 
     if (b.boss) {
-      ctx.strokeStyle = 'rgba(255,204,77,' + (0.35 + Math.sin(b.wobble * 2) * 0.2) + ')';
+      const hot = b.phase2 ? '255,79,109' : '255,204,77';
+      ctx.strokeStyle = 'rgba(' + hot + ',' + (0.35 + Math.sin(b.wobble * (b.phase2 ? 5 : 2)) * 0.3) + ')';
       ctx.lineWidth = 2;
       roundedRect(ctx, b.x - 3, b.y - 3, b.w + 6, b.h + 6, 8);
       ctx.stroke();
@@ -1649,6 +1874,20 @@ function drawBalls() {
   }
 }
 
+function drawFusionBeam() {
+  const fb = G.fusionBeam;
+  if (!fb) return;
+  const a = clamp(fb.t, 0, 1);
+  const grd = ctx.createLinearGradient(fb.x - fb.w / 2, 0, fb.x + fb.w / 2, 0);
+  grd.addColorStop(0, 'rgba(255,255,255,0)');
+  grd.addColorStop(0.5, 'rgba(255,255,255,' + (0.72 * a).toFixed(3) + ')');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(fb.x - fb.w / 2, 0, fb.w, G.paddle.y);
+  ctx.fillStyle = 'rgba(255,255,255,' + (0.92 * a).toFixed(3) + ')';
+  ctx.fillRect(fb.x - 3, 0, 6, G.paddle.y);
+}
+
 function drawHazards() {
   for (const h of G.hazards) {
     ctx.save();
@@ -1677,6 +1916,19 @@ function drawBolts() {
     ctx.beginPath();
     ctx.moveTo(b.x, b.y);
     ctx.lineTo(b.x, b.y + 16);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawShockwaves() {
+  for (const s of G.shockwaves) {
+    const a = clamp(s.life / s.max, 0, 1);
+    ctx.globalAlpha = a * 0.5;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 2.5 * a;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, Math.PI, TAU);
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
@@ -1787,6 +2039,24 @@ function drawHud() {
     }
   }
 
+  // ---- fusion slot (next to the light swatches) ----
+  const fx = 172, fy = H - 24, fw = 96, fh = 18;
+  G.fuseRect = { x: fx, y: fy, w: fw, h: fh };
+  const fuseReady = G.fusionCD <= 0 && G.balls.length >= 2;
+  ctx.globalAlpha = fuseReady ? 1 : 0.35;
+  ctx.strokeStyle = fuseReady ? '#ffffff' : 'rgba(160,180,210,0.7)';
+  ctx.lineWidth = 1.4;
+  roundedRect(ctx, fx, fy, fw, fh, 5);
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.font = '700 11px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.fillStyle = fuseReady ? '#ffffff' : 'rgba(200,215,235,0.8)';
+  const fuseText = G.fusionCD > 0
+    ? t('fusionCool') + ' ' + Math.ceil(G.fusionCD) + 's'
+    : t('fusionReady');
+  ctx.fillText(fuseText, fx + fw / 2, fy + 13);
+  ctx.globalAlpha = 1;
+
   // ---- overdrive meter (bottom-centre) ----
   const mw = 250, mx = W / 2 - mw / 2, my = H - 26, mh = 9;
   ctx.fillStyle = 'rgba(255,255,255,0.09)';
@@ -1827,8 +2097,15 @@ function drawHud() {
     ctx.globalAlpha = 1;
   }
 
+  if (G.toneChain > 0) {
+    ctx.textAlign = 'center';
+    ctx.font = '800 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = TONES[G.tone].hex;
+    ctx.fillText(t('chain') + ' ' + G.toneChain + '/3', W / 2, 78);
+  }
+
   // first-floor coaching
-  if (G.tip > 0) {
+  if (G.tip > 0 && G.state === 'playing') {
     const a = clamp(G.tip / 1.2, 0, 1);
     ctx.globalAlpha = a;
     ctx.textAlign = 'center';
@@ -1884,10 +2161,11 @@ function drawMenu() {
     [t('launch'), t('launchVal')],
     [t('lightK'), t('lightVal')],
     [t('odK'), t('odVal')],
+    [t('fusionK'), t('fusionVal')],
     [t('goal'), t('floorsVal', FINAL_FLOOR)],
   ];
-  ctx.font = '600 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
-  let y = 330;
+  ctx.font = '600 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  let y = 318;
   for (const [k, v] of items) {
     ctx.textAlign = 'right';
     ctx.fillStyle = 'rgba(84,242,255,0.85)';
@@ -1895,7 +2173,7 @@ function drawMenu() {
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(190,205,225,0.75)';
     ctx.fillText(v, W / 2 + 16, y);
-    y += 30;
+    y += 26;
   }
 
   const pulse = 0.55 + Math.sin(G.time * 4) * 0.35;
@@ -2254,54 +2532,70 @@ function wrapText(text, cx, y, maxW, lh) {
 }
 
 function drawGameOver() {
-  ctx.fillStyle = 'rgba(4,5,12,0.84)';
+  ctx.fillStyle = 'rgba(4,5,12,0.86)';
   ctx.fillRect(0, 0, W, H);
 
   ctx.textAlign = 'center';
-  ctx.font = '800 54px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.font = '800 50px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#ff4f6d';
-  ctx.fillText(t('runOver'), W / 2, 232);
+  ctx.fillText(t('runOver'), W / 2, 206);
+
+  ctx.font = '700 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.fillStyle = 'rgba(170,188,212,0.85)';
+  ctx.fillText(t('score'), W / 2, 252);
+  ctx.font = '800 46px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.fillStyle = '#eafcff';
+  ctx.fillText(String(G.score), W / 2, 296);
 
   ctx.font = '700 15px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(170,188,212,0.85)';
-  ctx.fillText(t('score'), W / 2, 292);
-  ctx.font = '800 48px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
-  ctx.fillStyle = '#eafcff';
-  ctx.fillText(String(G.score), W / 2, 340);
+  ctx.fillText(t('floorWord', G.level) + '   ·   ' + t('best') + ' ' + G.best
+    + '   ·   ' + t('combo') + ' ' + (G.stats.comboBest || 0), W / 2, 332);
 
-  ctx.font = '700 16px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
-  ctx.fillStyle = 'rgba(170,188,212,0.85)';
-  ctx.fillText(t('floorWord', G.level) + '   ·   ' + t('best') + ' ' + G.best, W / 2, 384);
+  let lineY = 358;
   if (G.daily) {
-    ctx.font = '800 15px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.font = '800 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = '#ffd166';
-    ctx.fillText(t('daily'), W / 2, 410);
+    ctx.fillText(t('daily'), W / 2, lineY);
+    lineY += 22;
   }
-
   if (G.score >= G.best && G.score > 0) {
+    ctx.font = '800 18px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = '#ffd166';
-    ctx.font = '800 20px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
-    ctx.fillText(t('newBest'), W / 2, 414);
+    ctx.fillText(t('newBest'), W / 2, lineY);
+    lineY += 22;
   }
 
   // run loadout
   const taken = CARDS.filter((c) => (G.upg.counts[c.id] || 0) > 0);
   if (taken.length) {
-    ctx.font = '700 12px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.font = '700 11px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(140,160,190,0.8)';
-    ctx.fillText(t('loadout'), W / 2, 446);
-    ctx.font = '700 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
-    const parts = taken.map((c) => c.name + ' ' + 'I'.repeat(G.upg.counts[c.id]));
-    const line = parts.join('   ·   ');
+    ctx.fillText(t('loadout'), W / 2, lineY + 10);
+    ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    const parts = taken.map((c) => (LANG === 'zh' && c.zh ? c.zh : c.name) + (G.upg.counts[c.id] > 1 ? G.upg.counts[c.id] : ''));
     ctx.fillStyle = TONES[G.tone].hex;
-    ctx.fillText(line, W / 2, 468);
+    ctx.fillText(parts.join('  ·  '), W / 2, lineY + 30);
+    lineY += 42;
   }
+
+  // copy-report button
+  const bw2 = 208, bh2 = 30, bx2 = W / 2 - bw2 / 2, by2 = Math.max(lineY + 12, 448);
+  G.copyRect = { x: bx2, y: by2, w: bw2, h: bh2 };
+  ctx.strokeStyle = G.copied > 0 ? 'rgba(125,255,176,0.9)' : 'rgba(140,160,190,0.5)';
+  ctx.lineWidth = 1.3;
+  roundedRect(ctx, bx2, by2, bw2, bh2, 9);
+  ctx.stroke();
+  ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.fillStyle = G.copied > 0 ? '#7dffb0' : 'rgba(190,205,225,0.9)';
+  ctx.fillText(G.copied > 0 ? t('copied') : t('copyReport'), W / 2, by2 + 20);
+  if (G.copied > 0) G.copied -= 1 / 60;
 
   const pulse = 0.55 + Math.sin(G.time * 4) * 0.35;
   ctx.globalAlpha = pulse;
-  ctx.font = '800 20px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.font = '800 19px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#54f2ff';
-  ctx.fillText(t('again'), W / 2, 492);
+  ctx.fillText(t('again'), W / 2, by2 + 66);
   ctx.globalAlpha = 1;
 }
 
@@ -2395,9 +2689,11 @@ function render() {
   if (G.state !== 'menu') {
     drawBricks();
     drawBolts();
-    drawHazards();
+    drawFusionBeam();
+  drawHazards();
     drawPaddle();
     drawBalls();
+    drawShockwaves();
     drawParticles();
     drawShards();
     drawFloaters();
@@ -2411,6 +2707,15 @@ function render() {
   if (G.state === 'paused') drawPaused();
   if (G.state === 'gameover') drawGameOver();
   if (G.state === 'victory') drawVictory();
+
+  if (G.combo >= 5 && G.state === 'playing') {
+    const heat = Math.min(1, (G.combo - 4) / 24);
+    const grd = ctx.createRadialGradient(W / 2, H / 2, H * 0.42, W / 2, H / 2, H * 0.9);
+    grd.addColorStop(0, 'rgba(255,209,102,0)');
+    grd.addColorStop(1, 'rgba(255,209,102,' + (heat * 0.20).toFixed(3) + ')');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+  }
 
   if (G.flash > 0) {
     ctx.fillStyle = 'rgba(255,79,109,' + (G.flash * 0.22) + ')';
@@ -2495,10 +2800,15 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'e' || e.key === 'E') { setTone(G.tone + 1); return; }
     if (e.key === '1' || e.key === '2' || e.key === '3') { setTone(parseInt(e.key, 10) - 1); return; }
     if (e.key === 'Shift') { tryOverdrive(); return; }
+    if (e.key === 'f' || e.key === 'F') { tryFusion(); return; }
   }
   if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
     if (G.state === 'playing') G.state = 'paused';
     else if (G.state === 'paused') G.state = 'playing';
+    return;
+  }
+  if ((e.key === 'c' || e.key === 'C') && (G.state === 'gameover' || G.state === 'victory')) {
+    copyReport();
     return;
   }
   if (e.key === 'l' || e.key === 'L') {
