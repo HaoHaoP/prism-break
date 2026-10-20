@@ -16,6 +16,10 @@
 
 连着三次用**同一光色**命中，会引爆全场所有该色的砖 —— 一次能清掉整屏三分之一。切色、或打到异色砖，连锁就断。所以真正的技巧不是「追球」，而是**在球乱飞的情况下保持打对颜色**。
 
+### 光痕
+
+砖块碎掉后会在原地留下一团残留的光。球穿过光痕会持续加速，光痕也随之暗淡。所以「先打穿一条通道，再让球在通道里越跑越快」是可以主动经营的路子，而不是纯看运气。
+
 ### 时间倒带
 
 球掉了不会立刻扣命：画面会停 1.5 秒等你决定。按 `R` 或点一下屏幕，球就回到 1.5 秒前的位置继续打。开局 2 次，每过五层恢复 1 次（上限 3）。所以失误是可以花掉的资源，而不是纯惩罚。
@@ -38,6 +42,8 @@
 | 贪婪 | 得分 ×1.6，球速 +8% |
 | 蜂群 | 砖块全 1 血，得分 ×1.2 |
 | 暗场 | 隐藏砖块血条 |
+| 下坠 | 球被持续向下牵引，得分 ×1.2 |
+| 横风 | 侧风来回吹动球，得分 ×1.2 |
 
 | 按键 | 动作 |
 | --- | --- |
@@ -110,6 +116,10 @@ The ball carries one of three light tones — cyan, violet, amber — and every 
 
 Land three hits **in a row with the same light tone** and every brick of that tone on the floor detonates at once — often a third of the board. Switching tone or clipping an off-tone brick breaks the streak. The real skill is holding the right colour while the ball does whatever it wants.
 
+### Light scars
+
+Shattered bricks leave a fading glow behind. Fly the ball through one and it keeps picking up speed, burning the scar down as it does. Breaking a corridor open and then running the ball through it is now something you can deliberately build toward.
+
 ### Rewind
 
 Dropping the ball no longer costs a life immediately — the game freezes for 1.5 seconds and waits. Press `R` or tap and the ball snaps back to where it was 1.5 seconds ago. Two charges per run, one more every fifth floor (max 3). Mistakes are a resource you can spend.
@@ -122,7 +132,7 @@ Floors also mix in **regenerating** bricks, **prism cores** that flip your tone 
 
 ## Floor modifiers
 
-From floor 2 on, most floors carry a random rule (shown top-left): **CURRENT** (ball speed +15%), **STILL** (−12%), **DENSE** (+1 hp, score ×1.4), **GREED** (score ×1.6, speed +8%), **SWARM** (all bricks 1 hp, score ×1.2) or **BLACKOUT** (brick health hidden).
+From floor 2 on, most floors carry a random rule (shown top-left): **CURRENT** (ball speed +15%), **STILL** (−12%), **DENSE** (+1 hp, score ×1.4), **GREED** (score ×1.6, speed +8%), **SWARM** (all bricks 1 hp, score ×1.2) **BLACKOUT** (brick health hidden), **DOWNDRAFT** (constant downward pull, score ×1.2) or **CROSSWIND** (the ball gets blown sideways, score ×1.2).
 
 ## Overdrive
 
