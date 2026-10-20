@@ -73,6 +73,16 @@ function dailyKey() { return 'prismbreak.daily.' + dailySeed(); }
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
+/* Phones get the same game with a smaller effects budget so the frame rate holds. */
+const LEAN = (() => {
+  try {
+    const coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    const cores = navigator.hardwareConcurrency || 4;
+    return !!coarse || cores <= 4;
+  } catch (e) { return false; }
+})();
+const FX = LEAN ? { burst: 0.55, trail: 0.5, particles: 240, veins: 40, shards: 0.6 } : { burst: 1, trail: 1, particles: 420, veins: 70, shards: 1 };
+
 /* #rrggbb -> rgba() with alpha, used by the glow layers */
 function hexA(hex, a) {
   if (typeof hex !== 'string' || hex.charAt(0) !== '#') return 'rgba(255,255,255,' + a + ')';
@@ -361,7 +371,7 @@ const I18N = {
     endless: '点击进入无尽模式',
     resonance: '共鸣', prismShift: '棱镜换色', regrow: '再生', fork: '分裂', vampireHeal: '吸血 +1 命',
     shielded: '护盾保护', crit: '暴击', enraged: '核心狂暴',
-    chain: '染光连锁', fusion: '合 光', slowmo: '减速', fusionReady: '合光 F', fusionCool: '合光',
+    chain: '染光连锁', fusion: '合 光', slowmo: '减速', history: '历史', fusionReady: '合光 F', fusionCool: '合光',
     rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
     odWaste: (n) => '只剩 ' + n + ' 块砖，超载留着', odCarry: '清层返还 30% 充能',
     floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
@@ -391,7 +401,7 @@ const I18N = {
     endless: 'CLICK TO ENTER THE ENDLESS',
     resonance: 'RESONANCE', prismShift: 'PRISM SHIFT', regrow: 'REGROW', fork: 'FORK', vampireHeal: 'VAMPIRIC +1',
     shielded: 'SHIELDED', crit: 'CRIT', enraged: 'ENRAGED',
-    chain: 'LIT CHAIN', fusion: 'FUSION', slowmo: 'SLOW-MO', fusionReady: 'FUSION F', fusionCool: 'FUSION',
+    chain: 'LIT CHAIN', fusion: 'FUSION', slowmo: 'SLOW-MO', history: 'HISTORY', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
     odWaste: (n) => n + ' bricks left — save it', odCarry: 'floor clear refunds 30%',
     floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
@@ -673,6 +683,19 @@ function loadBest() {
     G.best = parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0;
     G.bestFloor = parseInt(localStorage.getItem(HF_KEY) || '0', 10) || 0;
   } catch (e) { G.best = 0; G.bestFloor = 0; }
+}
+
+/* last five runs, kept locally so you can see yourself improving */
+function loadBoard() {
+  try { return JSON.parse(localStorage.getItem('prism_board') || '[]'); } catch (e) { return []; }
+}
+function recordRun(score, level) {
+  try {
+    const b = loadBoard();
+    b.push({ score, level, d: Date.now() });
+    b.sort((x, y) => y.score - x.score);
+    localStorage.setItem('prism_board', JSON.stringify(b.slice(0, 5)));
+  } catch (e) {}
 }
 
 function saveBest() {
@@ -960,7 +983,8 @@ function beginLevel() {
 /* --------------------------- particles ------------------------- */
 
 function burst(x, y, n, color, speed) {
-  if (G.particles.length > 420) n = Math.min(n, 6);
+  n = Math.max(1, Math.round(n * FX.burst));
+  if (G.particles.length > FX.particles) n = Math.min(n, 4);
   for (let i = 0; i < n; i++) {
     const a = rand(0, TAU);
     const s = rand(speed * 0.35, speed);
@@ -1143,7 +1167,7 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
   G.combo += 1;
   G.comboTimer = 2.4;
   G.stats.bricks += 1;
-  if (G.veins.length < 70) {
+  if (G.veins.length < FX.veins) {
     G.veins.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, r: b.w * 0.46, life: 7, tone: b.tone });
   }
   if (G.combo > (G.stats.comboBest || 0)) G.stats.comboBest = G.combo;
@@ -1334,6 +1358,7 @@ function chooseCard(i) {
     G.wonAt = G.time;
     G.stats.wins = (G.stats.wins || 0) + 1;
     saveBest();
+    recordRun(G.score, G.level);
     saveStats();
     checkAchievements();
     Sound.level();
@@ -1732,6 +1757,7 @@ function loseLife() {
     Music.stop();
     G.deadAt = G.time;
     saveBest();
+    recordRun(G.score, G.level);
     saveStats();
     checkAchievements();
   } else {
@@ -2165,6 +2191,7 @@ function drawBalls() {
   for (const b of G.balls) {
     const toneHex = TONES[G.tone].hex;
     for (let i = 0; i < b.trail.length; i++) {
+      if (FX.trail < 1 && i % 2 === 1) continue;
       const t = b.trail[i];
       const a = (i / b.trail.length) * 0.4;
       ctx.globalAlpha = a;
@@ -2907,7 +2934,7 @@ function wrapText(text, cx, y, maxW, lh) {
 }
 
 function drawGameOver() {
-  ctx.fillStyle = 'rgba(4,5,12,0.86)';
+  ctx.fillStyle = 'rgba(4,5,12,0.93)';
   ctx.fillRect(0, 0, W, H);
 
   ctx.textAlign = 'center';
@@ -2966,11 +2993,19 @@ function drawGameOver() {
   ctx.fillText(G.copied > 0 ? t('copied') : t('copyReport'), W / 2, by2 + 20);
   if (G.copied > 0) G.copied -= 1 / 60;
 
+  const board = loadBoard();
+  if (board.length) {
+    ctx.font = '700 12px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = 'rgba(140,160,190,0.85)';
+    const top = board.slice(0, 5).map((r, i) => (i + 1) + '. ' + r.score).join('    ');
+    ctx.fillText(t('history') + '  ' + top, W / 2, by2 + 48);
+  }
+
   const pulse = 0.55 + Math.sin(G.time * 4) * 0.35;
   ctx.globalAlpha = pulse;
   ctx.font = '800 19px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#54f2ff';
-  ctx.fillText(t('again'), W / 2, by2 + 66);
+  ctx.fillText(t('again'), W / 2, by2 + 82);
   ctx.globalAlpha = 1;
 }
 
