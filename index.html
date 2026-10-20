@@ -4868,5 +4868,14 @@ window.__prism = {
 };
 })();
 </script>
+<script>
+/* PWA installability: Chrome on Android only offers "Install app" for a site whose
+   service worker is registered and handling fetch, so register it after load. */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  });
+}
+</script>
 </body>
 </html>
