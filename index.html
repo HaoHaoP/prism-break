@@ -9,7 +9,12 @@
 <meta property="og:title" content="PRISM BREAK">
 <meta property="og:description" content="A neon brick-breaker roguelike. Clear a floor, pick an upgrade, go deeper.">
 <meta property="og:type" content="website">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23070a14'/><circle cx='50' cy='50' r='18' fill='%2354f2ff'/><circle cx='50' cy='50' r='30' fill='none' stroke='%23ff4fd8' stroke-width='5'/></svg>">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="棱镜爆破">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
 <style>
   :root { color-scheme: dark; }
   html, body {
@@ -155,9 +160,9 @@ const CARDS = [
 /* Light tones: the prism splits white light into three. Brick tone and ball tone
    matching is the core skill of the game — same tone deals double damage. */
 const TONES = [
-  { name: 'CYAN',    hex: '#54f2ff', dim: '#17607c' },
-  { name: 'VIOLET',  hex: '#b07bff', dim: '#4a2c8f' },
-  { name: 'AMBER',   hex: '#ffd166', dim: '#8a6a1f' },
+  { name: 'CYAN',    hex: '#54f2ff', dim: '#1e8db0' },
+  { name: 'VIOLET',  hex: '#b07bff', dim: '#5c38c4' },
+  { name: 'AMBER',   hex: '#ffd166', dim: '#b8871f' },
 ];
 const FINAL_FLOOR = 10;
 
@@ -563,6 +568,7 @@ function beginLevel() {
   G.paddle.w = paddleWidth();
   resetBalls();
   G.state = 'playing';
+  G.tip = G.level === 1 ? 5.5 : 0;
   burst(W / 2, H - 62, 14, '#54f2ff', 90);
 }
 
@@ -583,6 +589,10 @@ function burst(x, y, n, color, speed) {
       color,
     });
   }
+}
+
+function haptic(ms) {
+  if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} }
 }
 
 function debris(x, y, n, color) {
@@ -636,7 +646,7 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
   if (!chain && tone !== undefined && tone >= 0 && b.tone === tone) {
     match = true;
     amount *= 2 + (G.upg.resoBonus || 0);
-    floatText(b.x + b.w / 2, b.y - 4, t('resonance'), TONES[tone].hex);
+    if (G.floaters.length < 5) floatText(b.x + b.w / 2, b.y - 4, t('resonance'), TONES[tone].hex);
     Sound.resonance();
   }
 
@@ -665,6 +675,7 @@ function damageBrick(b, amount, fromX, fromY, chain, tone) {
   burst(b.x + b.w / 2, b.y + b.h / 2, b.boss ? 46 : 14, b.color, b.boss ? 240 : 150);
   debris(b.x + b.w / 2, b.y + b.h / 2, b.boss ? 18 : 6, b.color);
   G.shake = Math.min(G.shake + (b.boss ? 11 : 3.2), 16);
+  if (b.boss) haptic(35);
   G.hitstop = Math.max(G.hitstop, b.boss ? 0.07 : 0.014);
   if (G.combo > 2 && G.floaters.length < 9) floatText(b.x + b.w / 2, b.y + b.h / 2, 'x' + G.combo, b.color);
 
@@ -739,7 +750,11 @@ function onPointerDown(clientX, clientY) {
     return;
   }
   if (G.state === 'victory') {
-    if (G.time - G.wonAt > 0.8) { G.endless = true; beginLevel(); }
+    if (G.time - G.wonAt > 0.35) {
+      G.endless = true;
+      G.state = 'playing';
+      beginLevel();
+    }
     return;
   }
   if (G.portraitHint) { G.portraitDismissed = true; G.portraitHint = false; return; }
@@ -771,7 +786,7 @@ function chooseCard(i) {
   }
   beginLevel();
   Sound.level();
-  floatText(W / 2, H * 0.60, t('floorWord', G.level), themeFor(G.level).accent);
+  G.flash = Math.max(G.flash, 0.22);
 }
 
 function offeringCards() {
@@ -801,6 +816,7 @@ function tryOverdrive() {
   G.slowTimer = 1.15;
   G.flash = 1;
   G.shake = 16;
+  haptic(45);
   Sound.overdrive();
   G.charge = 0;
   for (const b of G.bricks) {
@@ -1039,6 +1055,7 @@ function updateBalls(dt) {
     if (G.lives <= 0) {
       G.state = 'gameover';
       G.deadAt = G.time;
+      haptic(60);
       saveBest();
     } else {
       G.combo = 0;
@@ -1105,6 +1122,7 @@ function updateParticles(dt) {
 
 function update(dt) {
   G.time += dt;
+  if (G.tip > 0) G.tip = Math.max(0, G.tip - dt);
   if (G.slowTimer > 0) {
     G.slowTimer -= dt;
     dt *= 0.34;
@@ -1185,7 +1203,7 @@ function drawBricks() {
       grd.addColorStop(0, '#2a3247');
       grd.addColorStop(1, '#141a28');
     }
-    ctx.globalAlpha = b.breakable ? 0.28 + hpRatio * 0.55 : 1;
+    ctx.globalAlpha = b.breakable ? 0.34 + hpRatio * 0.46 : 1;
     ctx.fillStyle = grd;
     roundedRect(ctx, b.x, b.y, b.w, b.h, 5);
     ctx.fill();
@@ -1214,16 +1232,13 @@ function drawBricks() {
       ctx.fill();
     }
 
-    if (b.breakable && b.maxHp > 1 && b.kind === 'plain') {
-      // hp pips
-      const pips = Math.min(b.maxHp, 6);
-      const pw = 4, ph = 3, gap = 2.5;
-      const totalW = pips * pw + (pips - 1) * gap;
-      let filled = Math.ceil(b.hp);
-      for (let i = 0; i < pips; i++) {
-        ctx.fillStyle = i < filled ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.16)';
-        ctx.fillRect(b.x + (b.w - totalW) / 2 + i * (pw + gap), b.y + b.h - 6, pw, ph);
-      }
+    // tough bricks get a heavier top bar instead of hp dots
+    if (b.breakable && b.maxHp > 1 && b.kind === 'plain' && b.hp < b.maxHp) {
+      const filled = clamp(b.hp / b.maxHp, 0, 1);
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.55 + filled * 0.4) + ')';
+      ctx.fillRect(b.x + 6, b.y + b.h - 5, (b.w - 12) * filled, 2.5);
+      ctx.globalAlpha = 1;
     }
 
     if (b.kind === 'regen') {
@@ -1252,7 +1267,11 @@ function drawBricks() {
       ctx.closePath();
       ctx.stroke();
     } else if (b.kind === 'shield') {
-      ctx.strokeStyle = 'rgba(210,228,255,0.8)';
+      ctx.strokeStyle = 'rgba(160,190,255,0.95)';
+      ctx.lineWidth = 2;
+      roundedRect(ctx, b.x + 1, b.y + 1, b.w - 2, b.h - 2, 5);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(230,242,255,0.85)';
       ctx.lineWidth = 1.6;
       ctx.beginPath();
       ctx.moveTo(b.x + b.w / 2, b.y + 5);
@@ -1399,7 +1418,7 @@ function drawHud() {
   ctx.fillText(t('floor'), W / 2, 30);
   ctx.font = '700 26px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#ff4fd8';
-  ctx.fillText(G.endless ? String(G.level) : G.level + '/' + FINAL_FLOOR, W / 2, 54);
+  ctx.fillText((G.endless ? '' : Math.min(G.level, FINAL_FLOOR) + '/') + (G.endless ? String(G.level) : FINAL_FLOOR), W / 2, 54);
 
   // lives (top-left, under the score)
   ctx.textAlign = 'left';
@@ -1457,6 +1476,19 @@ function drawHud() {
   ctx.font = '700 10px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = full ? '#ffd166' : 'rgba(150,170,200,0.75)';
   ctx.fillText(full ? t('odReady') : t('overdrive'), W / 2, my - 6);
+
+  // first-floor coaching
+  if (G.tip > 0) {
+    const a = clamp(G.tip / 1.2, 0, 1);
+    ctx.globalAlpha = a;
+    ctx.textAlign = 'center';
+    ctx.font = '700 15px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = 'rgba(190,205,225,0.92)';
+    ctx.fillText(LANG === 'zh' ? 'Q / E 切换光色 —— 与砖块同色伤害翻倍' : 'Q / E shifts your light — matching a brick doubles the damage', W / 2, H - 208);
+    ctx.fillStyle = 'rgba(255,209,102,0.9)';
+    ctx.fillText(LANG === 'zh' ? '破砖充满超载，按 SHIFT 爆发' : 'broken bricks fill overdrive — SHIFT to burst', W / 2, H - 184);
+    ctx.globalAlpha = 1;
+  }
 
   // combo
   if (G.combo > 1) {
@@ -1803,14 +1835,14 @@ function drawGameOver() {
   ctx.fillRect(0, 0, W, H);
 
   ctx.textAlign = 'center';
-  ctx.font = '900 54px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.font = '800 54px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#ff4f6d';
   ctx.fillText(t('runOver'), W / 2, 232);
 
   ctx.font = '700 15px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(170,188,212,0.85)';
   ctx.fillText(t('score'), W / 2, 292);
-  ctx.font = '900 48px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.font = '800 48px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#eafcff';
   ctx.fillText(String(G.score), W / 2, 340);
 
@@ -1856,7 +1888,7 @@ function drawVictory() {
   g.addColorStop(0, TONES[0].hex);
   g.addColorStop(0.5, TONES[1].hex);
   g.addColorStop(1, TONES[2].hex);
-  ctx.font = '900 54px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.font = '800 54px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = g;
   ctx.fillText(t('victory'), 0, 0);
   ctx.restore();
@@ -1865,7 +1897,7 @@ function drawVictory() {
   ctx.fillStyle = 'rgba(180,198,222,0.9)';
   ctx.fillText(t('allCleared', FINAL_FLOOR), W / 2, 256);
 
-  ctx.font = '900 44px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.font = '800 44px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#eafcff';
   ctx.fillText(String(G.score), W / 2, 330);
 
@@ -1877,6 +1909,13 @@ function drawVictory() {
   ctx.globalAlpha = pulse;
   ctx.font = '800 20px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#54f2ff';
+  const takenWin = CARDS.filter((c) => (G.upg.counts[c.id] || 0) > 0);
+  if (takenWin.length) {
+    ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = TONES[G.tone].hex;
+    ctx.fillText(takenWin.map((c) => (LANG === 'zh' && c.zh ? c.zh : c.name) + ' ' + 'I'.repeat(G.upg.counts[c.id])).join('  ·  '), W / 2, 410);
+  }
+
   ctx.fillText(t('endless'), W / 2, 470);
   ctx.globalAlpha = 1;
 }
@@ -1885,12 +1924,22 @@ function drawPaused() {
   ctx.fillStyle = 'rgba(4,5,12,0.72)';
   ctx.fillRect(0, 0, W, H);
   ctx.textAlign = 'center';
-  ctx.font = '900 44px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.font = '800 44px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#54f2ff';
   ctx.fillText(t('paused'), W / 2, H / 2);
   ctx.font = '600 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(170,188,212,0.8)';
   ctx.fillText(t('resume'), W / 2, H / 2 + 34);
+
+  const taken = CARDS.filter((c) => (G.upg.counts[c.id] || 0) > 0);
+  if (taken.length) {
+    ctx.font = '700 12px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = 'rgba(140,160,190,0.8)';
+    ctx.fillText(t('loadout'), W / 2, H / 2 + 84);
+    ctx.font = '700 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = TONES[G.tone].hex;
+    ctx.fillText(taken.map((c) => (LANG === 'zh' && c.zh ? c.zh : c.name) + ' ' + 'I'.repeat(G.upg.counts[c.id])).join('  ·  '), W / 2, H / 2 + 106);
+  }
 }
 
 function drawRotateHint() {
