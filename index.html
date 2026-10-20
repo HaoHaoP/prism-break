@@ -2690,45 +2690,55 @@ function drawHud() {
     }
   }
 
-  // ---- pause / mute chips (touch playable) ----
-  const chW = 34, chH = 24;
-  const pauseX = W - 20 - chW, muteX = pauseX - chW - 8, chY = 58;
-  G.pauseRect = { x: pauseX, y: chY, w: chW, h: chH };
-  G.muteRect = { x: muteX, y: chY, w: chW, h: chH };
-  for (const [rx, kind] of [[pauseX, 'pause'], [muteX, 'mute']]) {
-    ctx.strokeStyle = 'rgba(150,170,200,0.35)';
-    ctx.lineWidth = 1.2;
-    roundedRect(ctx, rx, chY, chW, chH, 7);
+  // ---- pause / mute chips ----
+  // These were 34x24 logical, which is ~20x15 physical pixels on a landscape phone:
+  // far below the ~40px a fingertip can hit, so taps landed as paddle drags.
+  const chW = 62, chH = 52;
+  const pauseX = W - 24 - chW, muteX = pauseX - chW - 9, chY = 56;
+  // hit boxes are padded past the drawn chip: the drawn size is capped by the HUD
+  // above and the brick field below, but a finger still needs ~44px to land
+  G.pauseRect = { x: pauseX - 7, y: chY - 5, w: chW + 14, h: chH + 11 };
+  G.muteRect = { x: muteX - 7, y: chY - 5, w: chW + 14, h: chH + 11 };
+  for (const rx of [pauseX, muteX]) {
+    ctx.fillStyle = 'rgba(12,20,32,0.6)';
+    roundedRect(ctx, rx, chY, chW, chH, 14);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(150,170,200,0.4)';
+    ctx.lineWidth = 1.6;
+    roundedRect(ctx, rx, chY, chW, chH, 14);
     ctx.stroke();
   }
+  const pmx = pauseX + chW / 2, pmy = chY + chH / 2;
+  const mmx = muteX + chW / 2, mmy = chY + chH / 2;
   // pause glyph
-  ctx.fillStyle = 'rgba(200,215,235,0.85)';
-  ctx.fillRect(pauseX + 12, chY + 7, 4, 10);
-  ctx.fillRect(pauseX + 19, chY + 7, 4, 10);
+  ctx.fillStyle = 'rgba(210,225,244,0.95)';
+  ctx.fillRect(pmx - 8, pmy - 11, 6, 22);
+  ctx.fillRect(pmx + 2, pmy - 11, 6, 22);
   // speaker glyph
+  ctx.fillStyle = 'rgba(210,225,244,0.95)';
   ctx.beginPath();
-  ctx.moveTo(muteX + 10, chY + 9);
-  ctx.lineTo(muteX + 14, chY + 9);
-  ctx.lineTo(muteX + 19, chY + 5);
-  ctx.lineTo(muteX + 19, chY + 19);
-  ctx.lineTo(muteX + 14, chY + 15);
-  ctx.lineTo(muteX + 10, chY + 15);
+  ctx.moveTo(mmx - 12, mmy - 5);
+  ctx.lineTo(mmx - 5, mmy - 5);
+  ctx.lineTo(mmx + 2, mmy - 12);
+  ctx.lineTo(mmx + 2, mmy + 12);
+  ctx.lineTo(mmx - 5, mmy + 5);
+  ctx.lineTo(mmx - 12, mmy + 5);
   ctx.closePath();
   ctx.fill();
   if (Sound.on) {
-    ctx.strokeStyle = 'rgba(200,215,235,0.85)';
-    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = 'rgba(210,225,244,0.95)';
+    ctx.lineWidth = 2.4;
     ctx.beginPath();
-    ctx.arc(muteX + 20, chY + 12, 5, -0.9, 0.9);
+    ctx.arc(mmx + 4, mmy, 7, -0.9, 0.9);
     ctx.stroke();
   } else {
     ctx.strokeStyle = '#ff4f6d';
-    ctx.lineWidth = 1.8;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(muteX + 9, chY + 5);
-    ctx.lineTo(muteX + 24, chY + 19);
-    ctx.moveTo(muteX + 24, chY + 5);
-    ctx.lineTo(muteX + 9, chY + 19);
+    ctx.moveTo(mmx - 10, mmy - 8);
+    ctx.lineTo(mmx + 12, mmy + 8);
+    ctx.moveTo(mmx + 12, mmy - 8);
+    ctx.lineTo(mmx - 10, mmy + 8);
     ctx.stroke();
   }
 
