@@ -1835,8 +1835,9 @@ function updateBalls(dt) {
   }
 
   if (G.balls.length === 0 && !G.fusionBeam && !G.clearPending) {
-    // a rewind charges lets you take that drop back
-    if (G.rewinds > 0 && G.state === 'playing' && G.history.length > 12) {
+    // a rewind charge lets you take that drop back — but blitz trades seconds,
+    // and a rewind pause would freeze the clock, so it never offers one
+    if (!G.blitz && G.rewinds > 0 && G.state === 'playing' && G.history.length > 12) {
       G.state = 'rewindable';
       G.rewindT = 1.5;
       G.shake = 8;
@@ -2576,9 +2577,9 @@ function drawHud() {
     ctx.fillText((G.endless ? '' : Math.min(G.level, FINAL_FLOOR) + '/') + (G.endless ? String(G.level) : FINAL_FLOOR), W / 2, 54);
   }
 
-  // lives (top-left, under the score)
+  // lives (top-left, under the score) — blitz runs on the clock, not on lives
   ctx.textAlign = 'left';
-  for (let i = 0; i < Math.min(G.lives, 9); i++) {
+  for (let i = 0; !G.blitz && i < Math.min(G.lives, 9); i++) {
     ctx.fillStyle = '#ff4f6d';
     ctx.beginPath();
     ctx.arc(24 + i * 15, 76, 4.5, 0, TAU);
@@ -3658,20 +3659,23 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Shift') { tryOverdrive(); return; }
     if (e.key === 'f' || e.key === 'F') { tryFusion(); return; }
   }
+  if (CORE.active) {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      corePulse();
+      return;
+    }
+    if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+      CORE.active = false;
+      Music.stop();
+      G.state = 'menu';
+      return;
+    }
+    return;                       // CORE swallows the rest: no light keys, no fusion
+  }
   if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
     if (G.state === 'playing') G.state = 'paused';
     else if (G.state === 'paused') G.state = 'playing';
-    return;
-  }
-  if (e.key === ' ' && CORE.active) {
-    e.preventDefault();
-    corePulse();
-    return;
-  }
-  if (e.key === 'Escape' && CORE.active) {
-    CORE.active = false;
-    Music.stop();
-    G.state = 'menu';
     return;
   }
   if ((e.key === 'r' || e.key === 'R') && G.state === 'rewindable') {
@@ -4723,6 +4727,7 @@ window.__prism = {
   modSpeedMul: () => modSpeedMul(),
   modScoreMul: () => modScoreMul(),
   beginLevel: () => beginLevel(),
+  startBlitz: () => startBlitz(),
   cards: CARDS,
   buildLevel: (lv) => buildLevel(lv),
   saveImage: () => saveReportImage(),
