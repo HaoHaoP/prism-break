@@ -16,6 +16,10 @@
 
 连着三次用**同一光色**命中，会引爆全场所有该色的砖 —— 一次能清掉整屏三分之一。切色、或打到异色砖，连锁就断。所以真正的技巧不是「追球」，而是**在球乱飞的情况下保持打对颜色**。
 
+### 时间倒带
+
+球掉了不会立刻扣命：画面会停 1.5 秒等你决定。按 `R` 或点一下屏幕，球就回到 1.5 秒前的位置继续打。开局 2 次，每过五层恢复 1 次（上限 3）。所以失误是可以花掉的资源，而不是纯惩罚。
+
 ### 合光
 
 场上有两颗以上球时按 `F`：所有球塌缩成一道竖直光束，从挡板一路扫上去，路径上的砖全部融化（冷却 12 秒）。代价是所有球都没了，只剩一颗重新发球 —— 多球既是火力也是安全网，用它来赌。
@@ -60,7 +64,7 @@
 
 ## 成就与统计
 
-标题界面会记住你的累计局数、破砖总数与成就进度。五个成就：击碎核心、连击 25、一击 12 块、下潜 15 层、千砖。全部本地存档，不上传任何数据。
+标题界面会记住你的累计局数、破砖总数与成就进度。八个成就：击碎核心、连击 25、一击 12 块、下潜 15 层、千砖、时光倒流、染光大师、合光者。全部本地存档，不上传任何数据。
 
 ## 每日挑战
 
@@ -77,6 +81,7 @@
 - **换色 / 合光**：点左下角三个色块和「合光」槽
 - **超载**：直接点底部那条能量条
 - **暂停 / 静音**：右上角两个小按钮
+- **多指**：一根手指拖挡板的同时，另一根手指可以点任何按钮，互不干扰
 
 ## 本地运行
 
@@ -105,6 +110,10 @@ The ball carries one of three light tones — cyan, violet, amber — and every 
 
 Land three hits **in a row with the same light tone** and every brick of that tone on the floor detonates at once — often a third of the board. Switching tone or clipping an off-tone brick breaks the streak. The real skill is holding the right colour while the ball does whatever it wants.
 
+### Rewind
+
+Dropping the ball no longer costs a life immediately — the game freezes for 1.5 seconds and waits. Press `R` or tap and the ball snaps back to where it was 1.5 seconds ago. Two charges per run, one more every fifth floor (max 3). Mistakes are a resource you can spend.
+
 ### Fusion
 
 With two or more balls alive, press `F`: every ball collapses into a single vertical beam that sweeps up from the paddle and melts everything in its path (12s cooldown). You spend your whole board to do it and get one ball back — multi-ball is both your firepower and your safety net.
@@ -128,7 +137,7 @@ Breaking bricks charges the meter. At full, `SHIFT` fires a prism burst: every b
 
 ## Stats and achievements
 
-The title screen tracks lifetime runs, bricks broken and five achievements (clear the core, a 25 combo, a 12-brick burst, floor 15, a thousand bricks). Everything stays in `localStorage` — nothing is uploaded.
+The title screen tracks lifetime runs, bricks broken and eight achievements (clear the core, a 25 combo, a 12-brick burst, floor 15, a thousand bricks, a rewind save, a lit chain, a fusion). Everything stays in `localStorage` — nothing is uploaded.
 
 ## Daily run
 
@@ -143,6 +152,7 @@ Open the site on a mobile browser and add it to the home screen: the web app man
 - **Tone / fusion**: tap the three swatches and the fusion slot, bottom-left
 - **Overdrive**: tap the meter itself
 - **Pause / mute**: two chips in the top-right
+- **Multi-touch**: one finger steers while another taps buttons — they no longer interfere
 
 ## Controls
 
