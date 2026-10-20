@@ -6,6 +6,25 @@
 
 ![PRISM BREAK](assets/screenshot.png)
 
+## 两个游戏
+
+同一个 `index.html` 里装了两种几何完全不同的打法，菜单里切换。
+
+### 主模式 · PRISM BREAK
+
+底部挡板、上方砖墙。见下面「玩法」。
+
+### CORE · 核心
+
+没有挡板，也没有砖墙。砖块沿着**三圈同心圆环**排布，球活在这些圆环之间的环形空间里，唯一能救它的是一段**绕外圈旋转的弧盾**——你把鼠标（手机上用手指）指向哪，盾就转到哪个角度。
+
+- 球撞到盾的角度，决定它反弹回来的方向：正中**径向弹回**，偏一点就带着**切向偏移**飞出——这是这个模式唯一的技巧点
+- 盾没赶上的角度，球就出界，扣一条命
+- 清空所有环进入下一环，砖块血量随层数上涨
+- 三圈、48 块砖、每块砖带一个血量数字，球速随层数提升
+
+几何一换，所有肌肉记忆都失效：你不再预测球的落点，而是在**追角度**。`ESC` 回菜单。
+
 ## 玩法核心：光色共鸣
 
 大多数打砖块只要求你「接住球」。这里球带着一种**光色**（青 / 紫 / 金），每块砖也染着三种色之一。
@@ -164,6 +183,23 @@ Open the site on a mobile browser and add it to the home screen: the web app man
 - **Overdrive**: tap the meter itself
 - **Pause / mute**: two chips in the top-right
 - **Multi-touch**: one finger steers while another taps buttons — they no longer interfere
+
+## Two games in one file
+
+### PRISM BREAK (main)
+
+Paddle at the bottom, wall of bricks at the top — see below.
+
+### CORE
+
+No paddle, no wall. Bricks sit on **three concentric rings** around a glowing core, the ball lives in the annulus between them, and the only thing that can save it is an **arc shield that rotates around the outer rim**. Point where you want the shield; it chases your cursor (or finger).
+
+- Where the ball lands on the arc sets its return line: dead centre bounces it straight back radially, off-centre adds a tangential kick — that is the whole skill of the mode
+- Any angle the shield misses is a ball lost and a life gone
+- Clear every ring to advance; brick health climbs with the ring count
+- `ESC` returns to the menu
+
+Different geometry means none of your muscle memory transfers: you are not predicting a landing point any more, you are chasing an angle.
 
 ## Controls
 

@@ -373,7 +373,8 @@ const I18N = {
     shielded: '护盾保护', crit: '暴击', enraged: '核心狂暴',
     chain: '染光连锁', fusion: '合 光', slowmo: '减速', history: '历史', saveImage: '存图',
  blitz: '疾速 60s', timeUp: '时间到', blitzBest: '疾速最高',
- twinHalf: '孪生 1/2 —— 快打另一块', twinDone: '孪生破碎', fusionReady: '合光 F', fusionCool: '合光',
+ twinHalf: '孪生 1/2 —— 快打另一块', twinDone: '孪生破碎',
+ coreMode: '核心', ringWord: (n) => '第 ' + n + ' 环', coreClear: '环已清', core: '核心', fusionReady: '合光 F', fusionCool: '合光',
     rewind: '倒 带', rewindHint: '按 R 或点击倒带', rewindLeft: (n) => '还剩 ' + n + ' 次',
     odWaste: (n) => '只剩 ' + n + ' 块砖，超载留着', odCarry: '清层返还 30% 充能',
     floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
@@ -405,7 +406,8 @@ const I18N = {
     shielded: 'SHIELDED', crit: 'CRIT', enraged: 'ENRAGED',
     chain: 'LIT CHAIN', fusion: 'FUSION', slowmo: 'SLOW-MO', history: 'HISTORY', saveImage: 'IMAGE',
  blitz: 'BLITZ 60s', timeUp: "TIME'S UP", blitzBest: 'BLITZ BEST',
- twinHalf: 'TWIN 1/2 — break its pair', twinDone: 'TWIN BROKEN', fusionReady: 'FUSION F', fusionCool: 'FUSION',
+ twinHalf: 'TWIN 1/2 — break its pair', twinDone: 'TWIN BROKEN',
+ coreMode: 'CORE', ringWord: (n) => 'RING ' + n, coreClear: 'RING CLEAR', core: 'CORE', fusionReady: 'FUSION F', fusionCool: 'FUSION',
     rewind: 'REWIND', rewindHint: 'press R or tap to rewind', rewindLeft: (n) => n + ' left',
     odWaste: (n) => n + ' bricks left — save it', odCarry: 'floor clear refunds 30%',
     floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
@@ -570,6 +572,7 @@ const G = {
   langRect: null,
   dailyRect: null,
   blitzRect: null,
+  coreRect: null,
   stats: { runs: 0, bricks: 0, overdrives: 0, wins: 0, burstBest: 0, comboBest: 0, depthBest: 0,
            rewindSaved: 0, chains: 0, fusions: 0 },
   achs: {},
@@ -1333,6 +1336,10 @@ function onPointerDown(clientX, clientY) {
   Sound.init();
   Sound.resume();
   const p = toLogic(clientX, clientY);
+  if (CORE.active) {
+    if (CORE.over) startCore();
+    return;
+  }
   pointerMove(clientX, clientY);
 
   if (G.state === 'menu') {
@@ -1344,6 +1351,11 @@ function onPointerDown(clientX, clientY) {
     const br2 = G.blitzRect;
     if (br2 && p.x >= br2.x && p.x <= br2.x + br2.w && p.y >= br2.y && p.y <= br2.y + br2.h) {
       startBlitz();
+      return;
+    }
+    const cr3 = G.coreRect;
+    if (cr3 && p.x >= cr3.x && p.x <= cr3.x + cr3.w && p.y >= cr3.y && p.y <= cr3.y + cr3.h) {
+      startCore();
       return;
     }
     const lr = G.langRect;
@@ -2025,6 +2037,7 @@ function updateParticles(dt) {
 }
 
 function update(dt) {
+  if (CORE.active) { updateCore(dt); return; }
   const realDt = dt;          // wall-clock, unaffected by slow motion
   G.time += dt;
   if (G.tip > 0) G.tip = Math.max(0, G.tip - dt);
@@ -2768,11 +2781,15 @@ function drawMenu() {
   }
 
   // language toggle
-  const lbw = 96, lbh = 28, lby = 578, lgap = 8;
-  const rowW = lbw * 3 + lgap * 2;
-  const ldx = W / 2 - rowW / 2, bzx = ldx + lbw + lgap, lgx = bzx + lbw + lgap;
+  const lbw = 76, lbh = 28, lby = 578, lgap = 7;
+  const rowW = lbw * 4 + lgap * 3;
+  const ldx = W / 2 - rowW / 2;
+  const bzx = ldx + lbw + lgap;
+  const cxx = bzx + lbw + lgap;
+  const lgx = cxx + lbw + lgap;
   G.dailyRect = { x: ldx, y: lby, w: lbw, h: lbh };
   G.blitzRect = { x: bzx, y: lby, w: lbw, h: lbh };
+  G.coreRect = { x: cxx, y: lby, w: lbw, h: lbh };
   G.langRect = { x: lgx, y: lby, w: lbw, h: lbh };
   ctx.textAlign = 'center';
   ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
@@ -2789,6 +2806,12 @@ function drawMenu() {
   ctx.stroke();
   ctx.fillStyle = 'rgba(255,120,140,0.95)';
   ctx.fillText(t('blitz'), bzx + lbw / 2, lby + 18);
+
+  ctx.strokeStyle = 'rgba(84,242,255,0.6)';
+  roundedRect(ctx, cxx, lby, lbw, lbh, 9);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(84,242,255,0.95)';
+  ctx.fillText(t('core'), cxx + lbw / 2, lby + 18);
 
   ctx.strokeStyle = 'rgba(140,160,190,0.45)';
   roundedRect(ctx, lgx, lby, lbw, lbh, 9);
@@ -3373,6 +3396,7 @@ function drawRotateHint() {
 }
 
 function render() {
+  if (CORE.active) { renderCore(); return; }
   const sx = G.shake > 0 ? rand(-G.shake, G.shake) : 0;
   const sy = G.shake > 0 ? rand(-G.shake, G.shake) : 0;
 
@@ -3479,6 +3503,13 @@ function hitsUI(p) {
 
 canvas.addEventListener('pointermove', (e) => {
   if (e.pointerType === 'touch') {
+    if (CORE.active) {
+      const lp = toLogic(e.clientX, e.clientY);
+      G.pointers.x = lp.x;
+      G.pointers.y = lp.y;
+      G.pointers.active = true;
+      return;
+    }
     if (e.pointerId !== dragPointerId || !touchDrag) return;   // other fingers never steer
     const r = canvas.getBoundingClientRect();
     const dx = ((e.clientX - touchDrag.x) / Math.max(r.width, 1)) * W;
@@ -3543,6 +3574,12 @@ window.addEventListener('keydown', (e) => {
     else if (G.state === 'paused') G.state = 'playing';
     return;
   }
+  if (e.key === 'Escape' && CORE.active) {
+    CORE.active = false;
+    Music.stop();
+    G.state = 'menu';
+    return;
+  }
   if ((e.key === 'r' || e.key === 'R') && G.state === 'rewindable') {
     doRewind();
     return;
@@ -3581,6 +3618,573 @@ window.addEventListener('blur', () => {
   if (G.state === 'playing') G.state = 'paused';
 });
 
+/* ============================= CORE mode =============================
+   A second game sharing this file: no paddle at the bottom, no brick wall at
+   the top. Bricks sit on concentric rings around a core, the ball lives in the
+   annulus between them, and the only thing that can save it is an arc shield
+   you rotate around the outer rim. You are always chasing the angle.
+*/
+
+const CORE = {
+  active: false,
+  cx: 0, cy: 0,
+  R: 0,
+  coreR: 62,
+  shieldR: 0,
+  shieldA: -Math.PI / 2,
+  shieldW: 0.78,
+  bricks: [],
+  balls: [],
+  particles: [],
+  floaters: [],
+  lives: 3,
+  score: 0,
+  level: 1,
+  combo: 0,
+  comboT: 0,
+  shake: 0,
+  flash: 0,
+  hitstop: 0,
+  time: 0,
+  over: false,
+  clearT: 0,
+  best: 0,
+  shieldHitGlow: 0,
+};
+
+function coreNormA(a) {
+  while (a > Math.PI) a -= TAU;
+  while (a < -Math.PI) a += TAU;
+  return a;
+}
+
+function coreBurst(x, y, n, color, speed) {
+  n = Math.max(1, Math.round(n * FX.burst));
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, TAU);
+    const s = rand(speed * 0.3, speed);
+    CORE.particles.push({
+      x, y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s,
+      life: rand(0.2, 0.55),
+      max: 0.55,
+      size: rand(1.5, 3.4),
+      color,
+    });
+  }
+}
+
+function coreFloat(x, y, text, color) {
+  if (CORE.floaters.length > 12) return;
+  CORE.floaters.push({ x, y, text, color, life: 0.9, max: 0.9 });
+}
+
+function coreLayout() {
+  CORE.cx = W / 2;
+  CORE.cy = H / 2 + 8;
+  CORE.R = Math.min(W / 2, H / 2) - 22;
+  CORE.shieldR = CORE.R - 12;
+}
+
+function coreBuild(level) {
+  CORE.bricks.length = 0;
+  const rings = [
+    { r0: 104, r1: 142, n: 14 },
+    { r0: 156, r1: 194, n: 16 },
+    { r0: 208, r1: 246, n: 18 },
+  ];
+  const spinOffset = level * 0.21;
+  for (let ri = 0; ri < rings.length; ri++) {
+    const ring = rings[ri];
+    const aw = (TAU / ring.n) * 0.8;
+    for (let i = 0; i < ring.n; i++) {
+      if (level >= 3 && (i * 5 + ri * 7 + level) % 17 === 0) continue;
+      const a = (i / ring.n) * TAU + ri * 0.16 + spinOffset;
+      const baseHp = 1 + (ri >= 1 ? 1 : 0) + (level >= 4 ? 1 : 0);
+      CORE.bricks.push({
+        ring: ri,
+        r0: ring.r0,
+        r1: ring.r1,
+        a, aw,
+        hp: baseHp,
+        maxHp: baseHp,
+        tone: (ri * 2 + i) % 3,
+        alive: true,
+        flash: 0,
+        wobble: rand(0, TAU),
+      });
+    }
+  }
+}
+
+function coreSpawnBall() {
+  const a = -Math.PI / 2 + rand(-0.35, 0.35);
+  const sp = 370 + CORE.level * 20;
+  CORE.balls.push({
+    x: CORE.cx + Math.cos(a) * (CORE.coreR + 18),
+    y: CORE.cy + Math.sin(a) * (CORE.coreR + 18),
+    vx: Math.cos(a) * sp,
+    vy: Math.sin(a) * sp,
+    r: 7,
+    trail: [],
+    dead: false,
+  });
+}
+
+function coreReset(hard) {
+  coreLayout();
+  if (hard) {
+    CORE.level = 1;
+    CORE.score = 0;
+    CORE.lives = 3;
+    CORE.combo = 0;
+    CORE.over = false;
+    try { CORE.best = parseInt(localStorage.getItem('prism_core_best') || '0', 10) || 0; } catch (e) { CORE.best = 0; }
+  }
+  CORE.balls.length = 0;
+  CORE.particles.length = 0;
+  CORE.floaters.length = 0;
+  CORE.clearT = 0;
+  CORE.shake = 0;
+  CORE.flash = 0;
+  CORE.combo = 0;
+  coreBuild(CORE.level);
+  coreSpawnBall();
+}
+
+function startCore() {
+  CORE.active = true;
+  CORE.over = false;
+  Sound.init();
+  Sound.resume();
+  Music.start();
+  coreReset(true);
+  CORE.shieldA = -Math.PI / 2;
+}
+
+function coreHitBrick(bw, ux, uy) {
+  bw.hp -= 1;
+  bw.flash = 1;
+  CORE.combo += 1;
+  CORE.comboT = 2.2;
+  const mx2 = CORE.cx + Math.cos(bw.a) * ((bw.r0 + bw.r1) / 2);
+  const my2 = CORE.cy + Math.sin(bw.a) * ((bw.r0 + bw.r1) / 2);
+  Sound.hit({ kind: 'plain', hp: bw.hp, tone: bw.tone, breakable: true });
+  if (bw.hp > 0) {
+    coreBurst(mx2, my2, 4, TONES[bw.tone].hex, 110);
+    return;
+  }
+  bw.alive = false;
+  const gain = Math.round(14 + bw.maxHp * 9 + CORE.combo * 4 + CORE.level * 3);
+  CORE.score += gain;
+  CORE.shake = Math.min(CORE.shake + 2.6, 12);
+  coreBurst(mx2, my2, 18, TONES[bw.tone].hex, 190);
+  Sound.break_();
+  if (CORE.bricks.every((x) => !x.alive)) {
+    CORE.score += 500 + CORE.level * 100;
+    CORE.clearT = 1.15;
+    CORE.flash = 0.5;
+    Sound.floorClear();
+    haptic(40);
+    coreFloat(CORE.cx, CORE.cy - CORE.coreR - 26, t('coreClear'), '#7dffb0');
+  }
+}
+
+function coreNudge(b) {
+  // anti-stall: steer toward the nearest surviving brick so the last few are
+  // always reachable instead of leaving the ball circling forever
+  const alive = CORE.bricks.filter((x) => x.alive);
+  if (!alive.length) return;
+  let best = null;
+  let bd = Infinity;
+  for (const x of alive) {
+    const mid = (x.r0 + x.r1) / 2;
+    const bx = CORE.cx + Math.cos(x.a) * mid;
+    const by = CORE.cy + Math.sin(x.a) * mid;
+    const d = Math.hypot(b.x - bx, b.y - by);
+    if (d < bd) { bd = d; best = { bx, by }; }
+  }
+  if (!best) return;
+  const sp = Math.hypot(b.vx, b.vy) || 1;
+  const want = Math.atan2(best.by - b.y, best.bx - b.x);
+  const cur = Math.atan2(b.vy, b.vx);
+  let diff = coreNormA(want - cur);
+  diff *= 0.92;                       // bend hard toward it, but keep the line a line
+  b.vx = Math.cos(cur + diff) * sp;
+  b.vy = Math.sin(cur + diff) * sp;
+}
+
+function coreBallStep(b) {
+  const dx = b.x - CORE.cx;
+  const dy = b.y - CORE.cy;
+  const d = Math.hypot(dx, dy) || 0.001;
+  const ux = dx / d;
+  const uy = dy / d;
+
+  // outer rim: shield or death
+  if (d > CORE.shieldR - b.r) {
+    const ang = Math.atan2(dy, dx);
+    const da = Math.abs(coreNormA(ang - CORE.shieldA));
+    if (da < CORE.shieldW / 2) {
+      const sp = Math.hypot(b.vx, b.vy);
+      const dot = b.vx * ux + b.vy * uy;
+      b.vx -= 2 * dot * ux;
+      b.vy -= 2 * dot * uy;
+      // where on the arc it landed steers the return
+      const off = coreNormA(ang - CORE.shieldA) / (CORE.shieldW / 2);
+      const tx = -uy, ty = ux;
+      // never return on a purely radial line, or the ball ping-pongs forever
+      // between the shield and the gaps between rings
+      const bias = off * 0.55 + rand(-0.22, 0.22);
+      b.vx += tx * bias * sp;
+      b.vy += ty * bias * sp;
+      const norm = Math.hypot(b.vx, b.vy) || 1;
+      b.vx = (b.vx / norm) * sp;
+      b.vy = (b.vy / norm) * sp;
+      b.x = CORE.cx + ux * (CORE.shieldR - b.r - 1);
+      b.y = CORE.cy + uy * (CORE.shieldR - b.r - 1);
+      CORE.shieldHitGlow = 1;
+      CORE.shake = Math.min(CORE.shake + 2.4, 10);
+      Sound.paddle();
+      haptic(10);
+      return;
+    }
+    b.dead = true;
+    coreBurst(b.x, b.y, 14, '#ff4f6d', 200);
+    CORE.shake = 12;
+    return;
+  }
+
+  // the core reflects
+  if (d < CORE.coreR + b.r) {
+    const dot = b.vx * ux + b.vy * uy;
+    b.vx -= 2 * dot * ux;
+    b.vy -= 2 * dot * uy;
+    b.x = CORE.cx + ux * (CORE.coreR + b.r + 1);
+    b.y = CORE.cy + uy * (CORE.coreR + b.r + 1);
+    Sound.wall();
+    return;
+  }
+
+  // bricks on the rings
+  const ang2 = Math.atan2(dy, dx);
+  for (const bw of CORE.bricks) {
+    if (!bw.alive) continue;
+    if (d < bw.r0 - b.r || d > bw.r1 + b.r) continue;
+    if (Math.abs(coreNormA(ang2 - bw.a)) > bw.aw / 2) continue;
+    const dot = b.vx * ux + b.vy * uy;
+    b.vx -= 2 * dot * ux;
+    b.vy -= 2 * dot * uy;
+    b.idle = 0;
+    coreHitBrick(bw);
+    return;
+  }
+}
+
+function updateCore(dt) {
+  CORE.time += dt;
+  if (CORE.shake > 0) CORE.shake = Math.max(0, CORE.shake - dt * 30);
+  if (CORE.flash > 0) CORE.flash = Math.max(0, CORE.flash - dt * 2.2);
+  if (CORE.shieldHitGlow > 0) CORE.shieldHitGlow = Math.max(0, CORE.shieldHitGlow - dt * 3.4);
+  if (CORE.comboT > 0) {
+    CORE.comboT -= dt;
+    if (CORE.comboT <= 0) CORE.combo = 0;
+  }
+
+  for (let i = CORE.particles.length - 1; i >= 0; i--) {
+    const p = CORE.particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= 0.97;
+    p.vy *= 0.97;
+    p.life -= dt;
+    if (p.life <= 0) CORE.particles.splice(i, 1);
+  }
+  for (let i = CORE.floaters.length - 1; i >= 0; i--) {
+    const f = CORE.floaters[i];
+    f.y -= dt * 26;
+    f.life -= dt;
+    if (f.life <= 0) CORE.floaters.splice(i, 1);
+  }
+  for (const bw of CORE.bricks) {
+    if (bw.flash > 0) bw.flash = Math.max(0, bw.flash - dt * 4);
+  }
+
+  if (CORE.over) return;
+
+  if (CORE.clearT > 0) {
+    CORE.clearT -= dt;
+    if (CORE.clearT <= 0) {
+      CORE.level += 1;
+      CORE.balls.length = 0;
+      coreBuild(CORE.level);
+      coreSpawnBall();
+    }
+    return;
+  }
+
+  // the shield chases the pointer angle
+  const px2 = G.pointers.x - CORE.cx;
+  const py2 = G.pointers.y - CORE.cy;
+  if (Math.hypot(px2, py2) > 22) {
+    const want = Math.atan2(py2, px2);
+    const diff = coreNormA(want - CORE.shieldA);
+    CORE.shieldA = coreNormA(CORE.shieldA + diff * Math.min(1, dt * 18));
+  }
+
+  for (let i = CORE.balls.length - 1; i >= 0; i--) {
+    const b = CORE.balls[i];
+    const steps = 4;
+    b.idle = (b.idle || 0) + dt;
+    if (b.idle > 1.15) {
+      coreNudge(b);
+      b.idle = 0;
+    }
+    for (let s = 0; s < steps && !b.dead; s++) {
+      b.x += (b.vx * dt) / steps;
+      b.y += (b.vy * dt) / steps;
+      coreBallStep(b);
+    }
+    b.trail.push({ x: b.x, y: b.y });
+    if (b.trail.length > (LEAN ? 7 : 13)) b.trail.shift();
+    if (b.dead) CORE.balls.splice(i, 1);
+  }
+
+  if (!CORE.balls.length) {
+    CORE.lives -= 1;
+    CORE.combo = 0;
+    CORE.flash = 0.55;
+    CORE.shake = 14;
+    Sound.lose();
+    haptic(60);
+    if (CORE.lives <= 0) {
+      CORE.over = true;
+      if (CORE.score > CORE.best) {
+        CORE.best = CORE.score;
+        try { localStorage.setItem('prism_core_best', String(CORE.best)); } catch (e) {}
+      }
+      Music.stop();
+      return;
+    }
+    coreSpawnBall();
+  }
+}
+
+function renderCore() {
+  const bg = ctx.createRadialGradient(CORE.cx, CORE.cy, 30, CORE.cx, CORE.cy, CORE.R + 80);
+  bg.addColorStop(0, '#0a1322');
+  bg.addColorStop(0.7, '#070a13');
+  bg.addColorStop(1, '#04050a');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  if (CORE.shake > 0.3) {
+    ctx.translate(rand(-CORE.shake, CORE.shake) * 0.35, rand(-CORE.shake, CORE.shake) * 0.35);
+  }
+
+  // rim
+  ctx.beginPath();
+  ctx.arc(CORE.cx, CORE.cy, CORE.R, 0, TAU);
+  ctx.strokeStyle = 'rgba(84,242,255,0.14)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // ring guides
+  for (const rr of [142, 194, 246]) {
+    ctx.beginPath();
+    ctx.arc(CORE.cx, CORE.cy, rr, 0, TAU);
+    ctx.strokeStyle = 'rgba(90,140,200,0.07)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // bricks
+  for (const bw of CORE.bricks) {
+    if (!bw.alive) continue;
+    const col = TONES[bw.tone];
+    const mid = (bw.r0 + bw.r1) / 2;
+    const wdt = bw.r1 - bw.r0;
+    ctx.beginPath();
+    ctx.arc(CORE.cx, CORE.cy, mid, bw.a - bw.aw / 2, bw.a + bw.aw / 2);
+    ctx.lineWidth = wdt;
+    ctx.strokeStyle = col.hex;
+    ctx.globalAlpha = bw.flash > 0 ? 1 : 0.88;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    ctx.beginPath();
+    ctx.arc(CORE.cx, CORE.cy, bw.r1 - 2, bw.a - bw.aw / 2 + 0.012, bw.a + bw.aw / 2 - 0.012);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = bw.flash > 0 ? '#ffffff' : 'rgba(255,255,255,0.28)';
+    ctx.stroke();
+
+    if (bw.maxHp > 1) {
+      const px3 = CORE.cx + Math.cos(bw.a) * mid;
+      const py3 = CORE.cy + Math.sin(bw.a) * mid;
+      ctx.fillStyle = 'rgba(6,10,18,0.75)';
+      ctx.beginPath();
+      ctx.arc(px3, py3, 7, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#eafcff';
+      ctx.font = '700 10px ui-monospace, Menlo, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(bw.hp), px3, py3 + 3.5);
+    }
+  }
+
+  // core
+  const cg = ctx.createRadialGradient(CORE.cx, CORE.cy, 4, CORE.cx, CORE.cy, CORE.coreR);
+  cg.addColorStop(0, '#f2feff');
+  cg.addColorStop(0.45, '#54f2ff');
+  cg.addColorStop(1, 'rgba(13,63,87,0.9)');
+  ctx.fillStyle = cg;
+  ctx.beginPath();
+  ctx.arc(CORE.cx, CORE.cy, CORE.coreR, 0, TAU);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(CORE.cx, CORE.cy, CORE.coreR + 4 + Math.sin(CORE.time * 3) * 2, 0, TAU);
+  ctx.strokeStyle = 'rgba(84,242,255,0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // shield arc
+  const sa = CORE.shieldA;
+  const sw = CORE.shieldW / 2;
+  ctx.beginPath();
+  ctx.arc(CORE.cx, CORE.cy, CORE.shieldR, sa - sw, sa + sw);
+  ctx.lineWidth = 13;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = CORE.shieldHitGlow > 0 ? '#ffffff' : '#54f2ff';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(CORE.cx, CORE.cy, CORE.shieldR, sa - sw, sa + sw);
+  ctx.lineWidth = 22;
+  ctx.strokeStyle = CORE.shieldHitGlow > 0
+    ? 'rgba(255,255,255,' + (0.22 * CORE.shieldHitGlow) + ')'
+    : 'rgba(84,242,255,0.12)';
+  ctx.stroke();
+
+  // balls
+  for (const b of CORE.balls) {
+    for (let i = 0; i < b.trail.length; i++) {
+      const tr = b.trail[i];
+      ctx.globalAlpha = (i / b.trail.length) * 0.35;
+      ctx.fillStyle = TONES[0].hex;
+      ctx.beginPath();
+      ctx.arc(tr.x, tr.y, b.r * (0.25 + (i / b.trail.length) * 0.6), 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    const gl = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r * 3);
+    gl.addColorStop(0, 'rgba(255,255,255,0.95)');
+    gl.addColorStop(0.5, 'rgba(124,246,255,0.55)');
+    gl.addColorStop(1, 'rgba(124,246,255,0)');
+    ctx.fillStyle = gl;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r * 3, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#f2feff';
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r * 0.7, 0, TAU);
+    ctx.fill();
+  }
+
+  // particles
+  for (const p of CORE.particles) {
+    ctx.globalAlpha = Math.max(0, p.life / p.max);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+
+  // floaters
+  for (const f of CORE.floaters) {
+    ctx.globalAlpha = Math.max(0, f.life / f.max);
+    ctx.fillStyle = f.color;
+    ctx.font = '800 20px ui-monospace, Menlo, "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  if (CORE.flash > 0) {
+    ctx.fillStyle = 'rgba(255,255,255,' + (CORE.flash * 0.55) + ')';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // ---- HUD ----
+  const FONT = 'ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.font = '700 13px ' + FONT;
+  ctx.fillStyle = 'rgba(160,180,210,0.85)';
+  ctx.fillText(t('score'), 24, 30);
+  ctx.font = '800 26px ' + FONT;
+  ctx.fillStyle = '#eafcff';
+  ctx.fillText(String(CORE.score).padStart(5, '0'), 24, 58);
+
+  for (let i = 0; i < Math.max(0, CORE.lives); i++) {
+    ctx.fillStyle = '#ff4f6d';
+    ctx.beginPath();
+    ctx.arc(30 + i * 15, 76, 4.5, 0, TAU);
+    ctx.fill();
+  }
+
+  ctx.textAlign = 'center';
+  ctx.font = '700 13px ' + FONT;
+  ctx.fillStyle = 'rgba(160,180,210,0.85)';
+  ctx.fillText(t('coreMode'), W / 2, 30);
+  ctx.font = '800 26px ' + FONT;
+  ctx.fillStyle = '#ff4fd8';
+  ctx.fillText(t('ringWord', CORE.level), W / 2, 58);
+
+  ctx.textAlign = 'right';
+  ctx.font = '700 13px ' + FONT;
+  ctx.fillStyle = 'rgba(160,180,210,0.85)';
+  ctx.fillText(t('best'), W - 24, 30);
+  ctx.font = '800 26px ' + FONT;
+  ctx.fillStyle = '#54f2ff';
+  ctx.fillText(String(CORE.best).padStart(5, '0'), W - 24, 58);
+
+  if (CORE.combo > 1) {
+    ctx.textAlign = 'right';
+    ctx.font = '800 20px ' + FONT;
+    ctx.fillStyle = '#ffd166';
+    ctx.fillText(t('combo') + ' x' + CORE.combo, W - 24, H - 22);
+  }
+
+  if (CORE.clearT > 0) {
+    ctx.textAlign = 'center';
+    ctx.font = '800 34px ' + FONT;
+    ctx.fillStyle = '#7dffb0';
+    ctx.fillText(t('coreClear'), W / 2, H / 2 - CORE.coreR - 40);
+  }
+
+  if (CORE.over) {
+    ctx.fillStyle = 'rgba(4,5,12,0.9)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center';
+    ctx.font = '800 46px ' + FONT;
+    ctx.fillStyle = '#ff4f6d';
+    ctx.fillText(t('runOver'), W / 2, H / 2 - 50);
+    ctx.font = '800 60px ' + FONT;
+    ctx.fillStyle = '#eafcff';
+    ctx.fillText(String(CORE.score), W / 2, H / 2 + 30);
+    ctx.font = '700 16px ' + FONT;
+    ctx.fillStyle = 'rgba(170,188,212,0.9)';
+    ctx.fillText(t('ringWord', CORE.level) + '   ·   ' + t('best') + ' ' + CORE.best, W / 2, H / 2 + 68);
+    const pulse = 0.55 + Math.sin(CORE.time * 4) * 0.35;
+    ctx.globalAlpha = pulse;
+    ctx.font = '800 19px ' + FONT;
+    ctx.fillStyle = '#54f2ff';
+    ctx.fillText(t('again'), W / 2, H / 2 + 116);
+    ctx.globalAlpha = 1;
+  }
+}
+
 /* ----------------------------- boot ---------------------------- */
 
 loadBest();
@@ -3605,6 +4209,8 @@ window.__prism = {
   cards: CARDS,
   buildLevel: (lv) => buildLevel(lv),
   saveImage: () => saveReportImage(),
+  core: CORE,
+  startCore: () => startCore(),
   applyMod: (id) => { G.mod = id ? MODIFIERS.find((m) => m.id === id) || null : null; },
 };
 })();
