@@ -15,7 +15,7 @@
   html, body {
     margin: 0; padding: 0; height: 100%; overflow: hidden;
     background: #05060d;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     -webkit-user-select: none; user-select: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: none;
@@ -132,6 +132,24 @@ const CARDS = [
     apply: (u) => { u.shield += 1; } },
   { id: 'life',   name: 'LIFE',    tag: 'DEFENSE', max: 3, desc: () => '+1 life.',
     apply: (u) => { u.lives += 1; } },
+  { id: 'seek',   name: 'SEEKER',  tag: 'CONTROL', max: 2, desc: () => 'Balls curve gently toward the nearest brick.',
+    apply: (u) => { u.seek += 1; } },
+  { id: 'fork',   name: 'FORK',    tag: 'OFFENSE', max: 2, desc: () => '35% chance to fork a short-lived extra ball off the paddle.',
+    apply: (u) => { u.fork += 0.35; } },
+  { id: 'amp',    name: 'AMP',     tag: 'OFFENSE', max: 1, desc: () => 'Resonance hits deal 3x damage instead of 2x.',
+    apply: (u) => { u.resoBonus = 1; } },
+  { id: 'rapid',  name: 'RAPID',   tag: 'OFFENSE', max: 2, desc: () => 'Overdrive charges 70% faster.',
+    apply: (u) => { u.chargeMul += 0.7; } },
+  { id: 'lance',  name: 'LANCER',  tag: 'OFFENSE', max: 1, desc: () => 'The paddle fires a three-bolt salvo.',
+    apply: (u) => { u.lance = 1; } },
+  { id: 'aegis',  name: 'AEGIS',   tag: 'DEFENSE', max: 1, desc: () => 'Double your floor shields.',
+    apply: (u) => { u.aegis = 1; } },
+  { id: 'glass',  name: 'GLASS',   tag: 'RISK', max: 1, desc: () => '+3 damage. Balls fly 18% faster.',
+    apply: (u) => { u.dmg += 3; u.speedMul *= 1.18; } },
+  { id: 'berserk',name: 'BERSERK', tag: 'RISK', max: 1, desc: () => '+2 damage. The paddle gets 22% narrower.',
+    apply: (u) => { u.dmg += 2; u.paddleMul *= 0.78; } },
+  { id: 'volatile',name: 'VOLATILE', tag: 'RISK', max: 1, desc: () => 'Overdrive charges 40% slower but hits for 3.',
+    apply: (u) => { u.chargeMul -= 0.4; u.odDmg = 3; } },
 ];
 
 /* Light tones: the prism splits white light into three. Brick tone and ball tone
@@ -143,8 +161,134 @@ const TONES = [
 ];
 const FINAL_FLOOR = 10;
 
+/* ---------------- i18n ---------------- */
+
+const LANG_KEY = 'prismbreak.lang.v1';
+
+const I18N = {
+  zh: {
+    score: '分数', best: '最高', floor: '层数', light: '光色', combo: '连击',
+    overdrive: '超载', odReady: '超载就绪 — SHIFT',
+    subtitle: '让光色与砖块同色 —— 同色命中伤害翻倍',
+    move: '移动', launch: '发射', lightK: '光色', odK: '超载', goal: '目标',
+    moveVal: '鼠标 / 方向键', launchVal: '点击 / 空格',
+    lightVal: 'Q / E —— 对准砖块同色',
+    odVal: '充能满时按 SHIFT',
+    floorsVal: (n) => n + ' 层',
+    start: '点 击 开 始',
+    bestLine: (b, f) => '最高 ' + b + (f ? '   ·   最深层 ' + f : ''),
+    cleared: (n) => '第 ' + n + ' 层通过',
+    chooseOne: '三 选 一',
+    pickHint: '点击卡牌，或按 1 / 2 / 3',
+    lv: (a, b) => '等级 ' + a + ' → ' + b,
+    runOver: '本 局 结 束', newBest: '新 纪 录 !', loadout: '本局卡组',
+    again: '点击再来一局',
+    paused: '已 暂 停', resume: '按 P 继续',
+    victory: '棱 镜 核 心 击 碎', allCleared: (n) => '全部 ' + n + ' 层通过',
+    endless: '点击进入无尽模式',
+    resonance: '共鸣', prismShift: '棱镜换色', regrow: '再生', fork: '分裂',
+    shielded: '护盾保护', crit: '暴击',
+    floorWord: (n) => '第 ' + n + ' 层', floorShort: (n) => '第 ' + n + ' 层',
+    tagOffense: '攻击', tagControl: '控制', tagDefense: '防御', tagRisk: '风险',
+    langBtn: 'EN',
+  },
+  en: {
+    score: 'SCORE', best: 'BEST', floor: 'FLOOR', light: 'LIGHT', combo: 'COMBO',
+    overdrive: 'OVERDRIVE', odReady: 'OVERDRIVE READY — SHIFT',
+    subtitle: 'match your light to the brick — same tone hits twice as hard',
+    move: 'MOVE', launch: 'LAUNCH', lightK: 'LIGHT', odK: 'OVERDRIVE', goal: 'GOAL',
+    moveVal: 'mouse / arrows', launchVal: 'click / space',
+    lightVal: 'Q / E — match the brick tone',
+    odVal: 'SHIFT when the meter fills',
+    floorsVal: (n) => n + ' floors',
+    start: 'CLICK TO START',
+    bestLine: (b, f) => 'BEST ' + b + (f ? '   ·   DEEPEST FLOOR ' + f : ''),
+    cleared: (n) => 'FLOOR ' + n + ' CLEARED',
+    chooseOne: 'CHOOSE ONE',
+    pickHint: 'click a card, or press 1 / 2 / 3',
+    lv: (a, b) => 'LV ' + a + ' → ' + b,
+    runOver: 'RUN OVER', newBest: 'NEW BEST!', loadout: 'LOADOUT',
+    again: 'CLICK TO RUN AGAIN',
+    paused: 'PAUSED', resume: 'press P to resume',
+    victory: 'CORE SHATTERED', allCleared: (n) => 'all ' + n + ' floors cleared',
+    endless: 'CLICK TO ENTER THE ENDLESS',
+    resonance: 'RESONANCE', prismShift: 'PRISM SHIFT', regrow: 'REGROW', fork: 'FORK',
+    shielded: 'SHIELDED', crit: 'CRIT',
+    floorWord: (n) => 'FLOOR ' + n, floorShort: (n) => 'FLOOR ' + n,
+    tagOffense: 'OFFENSE', tagControl: 'CONTROL', tagDefense: 'DEFENSE', tagRisk: 'RISK',
+    langBtn: '中文',
+  },
+};
+
+let LANG = 'zh';
+try {
+  const saved = localStorage.getItem(LANG_KEY);
+  if (saved === 'en' || saved === 'zh') LANG = saved;
+} catch (e) { LANG = 'zh'; }
+
+function t(key) {
+  const table = I18N[LANG] || I18N.en;
+  const v = table[key];
+  if (typeof v === 'function') return v.apply(null, Array.prototype.slice.call(arguments, 1));
+  if (v !== undefined) return v;
+  const fb = I18N.en[key];
+  return typeof fb === 'function' ? fb.apply(null, Array.prototype.slice.call(arguments, 1)) : (fb !== undefined ? fb : key);
+}
+
+function cardTagLabel(tag) {
+  if (tag === 'OFFENSE') return t('tagOffense');
+  if (tag === 'CONTROL') return t('tagControl');
+  if (tag === 'DEFENSE') return t('tagDefense');
+  if (tag === 'RISK') return t('tagRisk');
+  return tag;
+}
+
+function setLang(next) {
+  LANG = next === 'en' ? 'en' : 'zh';
+  try { localStorage.setItem(LANG_KEY, LANG); } catch (e) {}
+}
+
+/* Acts: the deeper thirds of the run get their own palette. */
+const THEMES = [
+  { bg: '#05060d', grid: 'rgba(84,242,255,0.045)',  accent: '#54f2ff' },
+  { bg: '#0b0614', grid: 'rgba(176,123,255,0.05)',  accent: '#b07bff' },
+  { bg: '#12060a', grid: 'rgba(255,209,102,0.05)',  accent: '#ffd166' },
+];
+function themeFor(level) {
+  return THEMES[clamp(Math.floor((level - 1) / 5), 0, THEMES.length - 1)];
+}
+
+const CARD_ZH = {
+  twin:     ['双生', '+1 颗球'],
+  wide:     ['加宽', '挡板加宽 24%'],
+  heavy:    ['重击', '每次命中 +1 伤害'],
+  pierce:   ['穿透', '球可穿透 2 块砖再反弹'],
+  blast:    ['爆破', '破砖时波及相邻砖块'],
+  laser:    ['激光', '挡板自动发射光束'],
+  crit:     ['暴击', '25% 概率三倍伤害'],
+  feather:  ['轻羽', '球速降低 10%'],
+  giant:    ['巨人', '球体变大，更好接'],
+  cushion:  ['缓冲', '球接近底部时减速'],
+  shield:   ['护盾', '每层一次地面护盾'],
+  life:     ['生命', '+1 条命'],
+  seek:     ['寻踪', '球会轻微拐向最近的砖'],
+  fork:     ['分裂', '35% 概率分裂出临时小球'],
+  amp:      ['增幅', '共鸣伤害 2 倍 → 3 倍'],
+  rapid:    ['疾充', '超载充能快 70%'],
+  lance:    ['三叉', '挡板三连激光'],
+  aegis:    ['神盾', '护盾次数翻倍'],
+  glass:    ['玻璃', '+3 伤害，球速 +18%'],
+  berserk:  ['狂战', '+2 伤害，挡板窄 22%'],
+  volatile: ['易爆', '充能慢 40%，超载伤害 3'],
+};
+for (const c of CARDS) {
+  const z = CARD_ZH[c.id];
+  if (z) { c.zh = z[0]; c.descZh = () => z[1]; }
+}
+
 const CARD_LOOK = {
   OFFENSE: ['#ff4f6d', '#ff9f43'],
+  RISK: ['#ff2d55', '#ff8a3d'],
   CONTROL: ['#54f2ff', '#4f9dff'],
   DEFENSE: ['#8b5cf6', '#ff4fd8'],
 };
@@ -152,12 +296,14 @@ const CARD_LOOK = {
 /* ---------------------------- state ---------------------------- */
 
 const HS_KEY = 'prismbreak.best.v1';
+const HF_KEY = 'prismbreak.floor.v1';
 
 const G = {
   state: 'menu',          // menu | playing | cardselect | paused | gameover
   level: 1,
   score: 0,
   best: 0,
+  bestFloor: 0,
   lives: 3,
   combo: 0,
   comboTimer: 0,
@@ -169,13 +315,16 @@ const G = {
   balls: [],
   bricks: [],
   particles: [],
+  shards: [],
   bolts: [],
   floaters: [],
   shieldUsed: false,
+  shieldLeft: 0,
   tone: 0,
   charge: 0,
   slowTimer: 0,
   toneRects: [],
+  langRect: null,
   wonAt: 0,
   cardChoices: [],
   cardRects: [],
@@ -198,6 +347,12 @@ function freshUpgrades() {
     shield: 0,
     lives: 0,
     paddleMul: 1,
+    seek: 0,
+    fork: 0,
+    resoBonus: 0,
+    chargeMul: 0,
+    lance: 0,
+    aegis: 0,
     counts: {},
   };
 }
@@ -205,13 +360,19 @@ function freshUpgrades() {
 function loadBest() {
   try {
     G.best = parseInt(localStorage.getItem(HS_KEY) || '0', 10) || 0;
-  } catch (e) { G.best = 0; }
+    G.bestFloor = parseInt(localStorage.getItem(HF_KEY) || '0', 10) || 0;
+  } catch (e) { G.best = 0; G.bestFloor = 0; }
 }
 
 function saveBest() {
-  if (G.score <= G.best) return;
-  G.best = G.score;
-  try { localStorage.setItem(HS_KEY, String(G.best)); } catch (e) {}
+  if (G.score > G.best) {
+    G.best = G.score;
+    try { localStorage.setItem(HS_KEY, String(G.best)); } catch (e) {}
+  }
+  if (G.level > (G.bestFloor || 0)) {
+    G.bestFloor = G.level;
+    try { localStorage.setItem(HF_KEY, String(G.bestFloor)); } catch (e) {}
+  }
 }
 
 /* --------------------------- geometry -------------------------- */
@@ -227,7 +388,7 @@ function ballSpeed() {
 }
 
 function paddleWidth() {
-  return clamp(148 * G.upg.paddleMul, 148, 320);
+  return clamp(148 * G.upg.paddleMul, 96, 320);
 }
 
 /* -------------------------- level build ------------------------ */
@@ -242,6 +403,8 @@ function cellOn(pattern, r, c, rows, cols) {
       return Math.abs(c - cx) / (cols / 2) + Math.abs(r - cy) / (rows / 2) <= 1.05;
     }
     case 4: return (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) ? true : (r + c) % 3 !== 1;
+    case 5: return c % 4 !== 3;                                   // vertical lanes
+    case 6: return (r + c) % 4 !== 0 || r % 2 === 0;              // diagonal weave
     default: return true;
   }
 }
@@ -252,23 +415,39 @@ function buildLevel(level) {
   const startX = (W - totalW) / 2;
   const startY = 100;
   const rows = clamp(4 + Math.floor((level - 1) / 2), 4, 7);
-  const pattern = (level - 1) % 5;
+  const pattern = (level - 1) % 7;
   const bricks = [];
-
-  const palette = ['#54f2ff', '#4f9dff', '#8b5cf6', '#ff4fd8', '#ff9f43'];  // hud accents only
+  const sweepRow = level >= 4 ? rows - 1 : -1;
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       if (!cellOn(pattern, r, c, rows, cols)) continue;
+
       let hp = 1;
       if (level >= 2 && (r + c) % 3 === 0) hp = 2;
       if (level >= 4 && (r * 3 + c) % 7 === 0) hp = 3;
       if (level >= 6 && r === 0) hp += 1;
-      // occasional indestructible strut once the run gets going
+
+      // indestructible strut: forces you out of a comfortable lane
       const steel = level >= 3 && hp === 1 && (c === 2 || c === 6) && r === Math.floor(rows / 2) && level % 2 === 1;
+
+      let kind = 'plain';
+      if (!steel) {
+        const roll = (r * 7 + c * 11 + level * 5) % 29;
+        if (level >= 3 && roll === 4) kind = 'regen';
+        else if (level >= 2 && roll === 9) kind = 'core';
+        else if (level >= 3 && roll === 15) kind = 'bomb';
+      }
+
+      const bx = startX + c * (cw + gap);
       const tone = (r * 2 + c + level) % 3;
+      const sweep = (r === sweepRow && level % 2 === 0)
+        ? { amp: 24, speed: 0.5, phase: c * 0.25 }
+        : null;
+
       bricks.push({
-        x: startX + c * (cw + gap),
+        x: bx,
+        baseX: bx,
         y: startY + r * (ch + gap),
         w: cw,
         h: ch,
@@ -277,33 +456,44 @@ function buildLevel(level) {
         breakable: !steel,
         alive: true,
         tone: steel ? -1 : tone,
-        color: steel ? '#2b3348' : TONES[tone].hex,
-        dimColor: steel ? '#141a28' : TONES[tone].dim,
+        color: steel ? '#54628a' : TONES[tone].hex,
+        dimColor: steel ? '#232b40' : TONES[tone].dim,
+        kind,
+        sweep,
+        regenTimer: 0,
         flash: 0,
         wobble: rand(0, TAU),
       });
     }
   }
 
-  // boss floor: a fat prism block in the middle
+  // boss floor: a core prism that stays immune until its shield plates are gone
   if (level % 5 === 0) {
     const bw = cw * 4 + gap * 3;
+    const bx = (W - bw) / 2;
+    const by = startY + rows * (ch + gap) + 10;
     bricks.push({
-      x: (W - bw) / 2,
-      y: startY + rows * (ch + gap) + 6,
-      w: bw,
-      h: ch * 2 + gap,
-      hp: 6 + Math.floor(level / 5) * 3,
-      maxHp: 6 + Math.floor(level / 5) * 3,
-      breakable: true,
-      alive: true,
-      boss: true,
-      tone: -1,
-      color: '#ffe9a8',
-      dimColor: '#6a4f14',
-      flash: 0,
-      wobble: 0,
+      x: bx, baseX: bx, y: by, w: bw, h: ch * 2 + gap,
+      hp: 6 + Math.floor(level / 5) * 3, maxHp: 6 + Math.floor(level / 5) * 3,
+      breakable: true, alive: true, boss: true, tone: -1, kind: 'boss',
+      color: '#ffe9a8', dimColor: '#6a4f14',
+      sweep: null, regenTimer: 0, flash: 0, wobble: 0,
     });
+    const sW = 58, sH = 22;
+    const shields = [
+      { x: bx - sW - 12, y: by + (ch * 2 + gap) / 2 - sH / 2 },
+      { x: bx + bw + 12, y: by + (ch * 2 + gap) / 2 - sH / 2 },
+      { x: W / 2 - sW / 2, y: by + ch * 2 + gap + 10 },
+    ];
+    for (const s of shields) {
+      bricks.push({
+        x: s.x, baseX: s.x, y: s.y, w: sW, h: sH,
+        hp: 3, maxHp: 3, breakable: true, alive: true,
+        tone: -1, kind: 'shield',
+        color: '#8fb0ff', dimColor: '#243a66',
+        sweep: null, regenTimer: 0, flash: 0, wobble: 0,
+      });
+    }
   }
 
   return bricks;
@@ -346,6 +536,7 @@ function startRun() {
   G.combo = 0;
   G.comboTimer = 0;
   G.particles.length = 0;
+  G.shards.length = 0;
   G.bolts.length = 0;
   G.floaters.length = 0;
   G.shake = 0;
@@ -364,6 +555,7 @@ function startRun() {
 function beginLevel() {
   G.bricks = buildLevel(G.level);
   G.shieldUsed = false;
+  G.shieldLeft = G.upg.shield * (G.upg.aegis ? 2 : 1);
   G.balls = [];
   G.bolts.length = 0;
   G.combo = 0;
@@ -393,51 +585,92 @@ function burst(x, y, n, color, speed) {
   }
 }
 
+function debris(x, y, n, color) {
+  if (G.shards.length > 90) return;
+  for (let i = 0; i < n; i++) {
+    G.shards.push({
+      x, y,
+      vx: rand(-170, 170),
+      vy: rand(-280, -40),
+      w: rand(4, 10),
+      h: rand(3, 6),
+      rot: rand(0, TAU),
+      spin: rand(-9, 9),
+      life: rand(0.7, 1.5),
+      max: 1.5,
+      color,
+    });
+  }
+}
+
 function floatText(x, y, text, color) {
   G.floaters.push({ x, y, text, color, life: 0.8, max: 0.8 });
 }
 
 /* --------------------------- damage ---------------------------- */
 
+function blastAt(b) {
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  for (const o of G.bricks) {
+    if (o === b || !o.alive || !o.breakable) continue;
+    const ox = o.x + o.w / 2, oy = o.y + o.h / 2;
+    if (Math.abs(ox - cx) < b.w * 1.15 + o.w / 2 && Math.abs(oy - cy) < b.h * 1.6 + o.h / 2) {
+      damageBrick(o, 1, ox, oy, true, -1);
+    }
+  }
+}
+
 function damageBrick(b, amount, fromX, fromY, chain, tone) {
   if (!b.alive || !b.breakable) return false;
+
+  // a boss core only takes damage once its shield plates are gone
+  if (b.boss && G.bricks.some((s) => s.kind === 'shield' && s.alive)) {
+    if (G.floaters.length < 9) floatText(b.x + b.w / 2, b.y + 10, t('shielded'), '#8fb0ff');
+    Sound.wall();
+    return false;
+  }
+
   for (const ball of G.balls) ball.idle = 0;
+
   let match = false;
   if (!chain && tone !== undefined && tone >= 0 && b.tone === tone) {
     match = true;
-    amount *= 2;
-    floatText(b.x + b.w / 2, b.y - 4, 'RESONANCE', TONES[tone].hex);
+    amount *= 2 + (G.upg.resoBonus || 0);
+    floatText(b.x + b.w / 2, b.y - 4, t('resonance'), TONES[tone].hex);
     Sound.resonance();
   }
+
   b.hp -= amount;
   b.flash = 1;
+
+  // a prism core brick swaps your light on contact
+  if (b.kind === 'core' && !chain) {
+    setTone((G.tone + (Math.random() < 0.5 ? 1 : 2)) % 3);
+    if (G.floaters.length < 9) floatText(b.x + b.w / 2, b.y + b.h + 16, t('prismShift'), '#ffffff');
+  }
+
   if (b.hp > 0) {
     Sound.brick(b.hp);
     burst(fromX, fromY, 3, b.color, 90);
     return false;
   }
+
   b.alive = false;
   Sound.break_();
   G.combo += 1;
   G.comboTimer = 2.4;
   const gain = Math.round((10 + b.maxHp * 6) * (1 + G.combo * 0.06) * (match ? 1.6 : 1));
   G.score += gain;
-  G.charge = Math.min(100, (G.charge || 0) + (match ? 13 : 7));
+  G.charge = Math.min(100, (G.charge || 0) + (match ? 13 : 7) * (1 + (G.upg.chargeMul || 0)));
   burst(b.x + b.w / 2, b.y + b.h / 2, b.boss ? 46 : 14, b.color, b.boss ? 240 : 150);
+  debris(b.x + b.w / 2, b.y + b.h / 2, b.boss ? 18 : 6, b.color);
   G.shake = Math.min(G.shake + (b.boss ? 11 : 3.2), 16);
   G.hitstop = Math.max(G.hitstop, b.boss ? 0.07 : 0.014);
   if (G.combo > 2 && G.floaters.length < 9) floatText(b.x + b.w / 2, b.y + b.h / 2, 'x' + G.combo, b.color);
 
-  if (G.upg.blast && !chain) {
-    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-    for (const o of G.bricks) {
-      if (o === b || !o.alive) continue;
-      const ox = o.x + o.w / 2, oy = o.y + o.h / 2;
-      if (Math.abs(ox - cx) < b.w * 1.15 + o.w / 2 && Math.abs(oy - cy) < b.h * 1.6 + o.h / 2) {
-        damageBrick(o, 1, ox, oy, true, -1);
-      }
-    }
-  }
+  // bombs chain on their own; the blast upgrade makes everything a bomb
+  if ((G.upg.blast || b.kind === 'bomb') && !chain) blastAt(b);
+
   return true;
 }
 
@@ -484,7 +717,15 @@ function onPointerDown(clientX, clientY) {
   const p = toLogic(clientX, clientY);
   pointerMove(clientX, clientY);
 
-  if (G.state === 'menu') { startRun(); return; }
+  if (G.state === 'menu') {
+    const lr = G.langRect;
+    if (lr && p.x >= lr.x && p.x <= lr.x + lr.w && p.y >= lr.y && p.y <= lr.y + lr.h) {
+      setLang(LANG === 'zh' ? 'en' : 'zh');
+      return;
+    }
+    startRun();
+    return;
+  }
   if (G.state === 'gameover') {
     if (G.time - (G.deadAt || 0) > 0.6) startRun();
     return;
@@ -501,6 +742,7 @@ function onPointerDown(clientX, clientY) {
     if (G.time - G.wonAt > 0.8) { G.endless = true; beginLevel(); }
     return;
   }
+  if (G.portraitHint) { G.portraitDismissed = true; G.portraitHint = false; return; }
   if (G.state === 'playing') {
     for (const r of G.toneRects) {
       if (p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h) { setTone(r.tone); return; }
@@ -529,7 +771,7 @@ function chooseCard(i) {
   }
   beginLevel();
   Sound.level();
-  floatText(W / 2, H / 2 - 40, 'FLOOR ' + G.level, '#54f2ff');
+  floatText(W / 2, H * 0.60, t('floorWord', G.level), themeFor(G.level).accent);
 }
 
 function offeringCards() {
@@ -562,10 +804,10 @@ function tryOverdrive() {
   Sound.overdrive();
   G.charge = 0;
   for (const b of G.bricks) {
-    if (b.alive && b.breakable) damageBrick(b, 1, b.x + b.w / 2, b.y + b.h / 2, true, -1);
+    if (b.alive && b.breakable) damageBrick(b, G.upg.odDmg || 1, b.x + b.w / 2, b.y + b.h / 2, true, -1);
   }
   G.charge = 0;
-  floatText(W / 2, H / 2 - 60, 'OVERDRIVE', '#ffd166');
+  floatText(W / 2, H / 2 - 60, t('overdrive'), '#ffd166');
 }
 
 function enterCardSelect() {
@@ -610,6 +852,11 @@ function updateBalls(dt) {
       continue;
     }
 
+    if (b.minion) {
+      b.life -= dt;
+      if (b.life <= 0) { G.balls.splice(i, 1); continue; }
+    }
+
     // cushion: slow down in the bottom band
     let speedScale = 1;
     if (G.upg.cushion && b.vy > 0 && b.y > H - 190) speedScale = 0.62;
@@ -642,7 +889,7 @@ function updateBalls(dt) {
         if (G.upg.crit > 0 && Math.random() < G.upg.crit) { crit = true; dmg *= 3; }
 
         const killed = damageBrick(br, dmg, b.x, b.y, false, G.tone);
-        if (crit) floatText(b.x, b.y - 14, 'CRIT', '#ffd166');
+        if (crit) floatText(b.x, b.y - 14, t('crit'), '#ffd166');
 
         // bounce resolution only for breakable bricks we did not punch through
         if (!br.breakable) {
@@ -696,12 +943,26 @@ function updateBalls(dt) {
           b.idle = Math.min(b.idle, 0.9);
           Sound.paddle();
           burst(b.x, p.y, 4, '#54f2ff', 80);
+          if (G.upg.fork > 0 && Math.random() < G.upg.fork && G.balls.length < 9) {
+            const nb = spawnBall(false);
+            nb.x = b.x;
+            nb.y = b.y;
+            nb.r = Math.max(4, G.upg.radius * 0.68);
+            nb.vx = b.vx * 0.55 + rand(-130, 130);
+            nb.vy = b.vy;
+            nb.minion = true;
+            nb.life = 7;
+            nb.pierces = 0;
+            G.balls.push(nb);
+            if (G.floaters.length < 9) floatText(b.x, p.y - 22, t('fork'), '#ffd166');
+          }
         }
       }
 
       // floor / shield
       if (b.y - b.r > H) {
-        if (G.upg.shield > 0 && !G.shieldUsed) {
+        if (G.shieldLeft > 0) {
+          G.shieldLeft -= 1;
           G.shieldUsed = true;
           b.y = H - b.r - 4;
           b.vy = -Math.abs(b.vy);
@@ -721,6 +982,28 @@ function updateBalls(dt) {
     const sp = Math.hypot(b.vx, b.vy);
     const target = clamp(sp, ballSpeed() * 0.94, ballSpeed() * 1.3);
     if (sp > 0) { b.vx = (b.vx / sp) * target; b.vy = (b.vy / sp) * target; }
+
+    // seeker: curve gently toward the nearest brick while in the upper field
+    if (G.upg.seek > 0 && b.y < H * 0.72) {
+      let target = null, bestD = Infinity;
+      for (const br of G.bricks) {
+        if (!br.alive || !br.breakable) continue;
+        const dx = br.x + br.w / 2 - b.x, dy = br.y + br.h / 2 - b.y;
+        const d = dx * dx + dy * dy;
+        if (d < bestD) { bestD = d; target = br; }
+      }
+      if (target) {
+        const want = Math.atan2(target.y + target.h / 2 - b.y, target.x + target.w / 2 - b.x);
+        const cur = Math.atan2(b.vy, b.vx);
+        let diff = want - cur;
+        while (diff > Math.PI) diff -= TAU;
+        while (diff < -Math.PI) diff += TAU;
+        const sp = Math.hypot(b.vx, b.vy);
+        const na = cur + clamp(diff, -1.6, 1.6) * 0.006 * G.upg.seek * dt * 60;
+        b.vx = Math.cos(na) * sp;
+        b.vy = Math.sin(na) * sp;
+      }
+    }
 
     // anti-stall: a nearly horizontal ball can ping forever between the walls
     const minVy = target * 0.32;
@@ -767,12 +1050,13 @@ function updateBalls(dt) {
 function updateBolts(dt) {
   if (G.upg.laser > 0) {
     G.laserTimer = (G.laserTimer || 0) + dt;
-    const period = 1.7 / G.upg.laser;
+    const period = (1.7 / G.upg.laser) * (G.upg.lance ? 0.75 : 1);
     if (G.laserTimer > period) {
       G.laserTimer = 0;
       const p = G.paddle;
       G.bolts.push({ x: p.x - p.w / 2 + 8, y: p.y - 6, vy: -720 });
       G.bolts.push({ x: p.x + p.w / 2 - 8, y: p.y - 6, vy: -720 });
+      if (G.upg.lance) G.bolts.push({ x: p.x, y: p.y - 6, vy: -780 });
       Sound.laser();
     }
   }
@@ -801,6 +1085,16 @@ function updateParticles(dt) {
     p.vx *= 0.965;
     p.vy = p.vy * 0.965 + 260 * dt;
   }
+  for (let i = G.shards.length - 1; i >= 0; i--) {
+    const s = G.shards[i];
+    s.life -= dt;
+    if (s.life <= 0) { G.shards.splice(i, 1); continue; }
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    s.vy += 760 * dt;
+    s.vx *= 0.99;
+    s.rot += s.spin * dt;
+  }
   for (let i = G.floaters.length - 1; i >= 0; i--) {
     const f = G.floaters[i];
     f.life -= dt;
@@ -822,6 +1116,19 @@ function update(dt) {
   for (const br of G.bricks) {
     if (br.flash > 0) br.flash = Math.max(0, br.flash - dt * 5);
     br.wobble += dt * 2;
+    if (br.sweep) {
+      br.x = br.baseX + Math.sin(G.time * br.sweep.speed + br.sweep.phase) * br.sweep.amp;
+    }
+    if (br.kind === 'regen' && br.alive && br.breakable && br.hp < br.maxHp && G.state === 'playing') {
+      br.regenTimer = (br.regenTimer || 0) + dt;
+      if (br.regenTimer > 6.5) {
+        br.regenTimer = 0;
+        br.hp = Math.min(br.maxHp, br.hp + 1);
+        br.flash = 0.8;
+        burst(br.x + br.w / 2, br.y + br.h / 2, 8, '#7dffb0', 90);
+        if (G.floaters.length < 9) floatText(br.x + br.w / 2, br.y - 4, t('regrow'), '#7dffb0');
+      }
+    }
   }
 
   if (G.state === 'playing') {
@@ -844,13 +1151,14 @@ function update(dt) {
 /* ---------------------------- render --------------------------- */
 
 function drawBackground() {
-  ctx.fillStyle = '#05060d';
+  const th = themeFor(G.level);
+  ctx.fillStyle = th.bg;
   ctx.fillRect(0, 0, W, H);
 
   // slow drifting grid
   const g = 48;
   const off = (G.time * 14) % g;
-  ctx.strokeStyle = 'rgba(84,242,255,0.045)';
+  ctx.strokeStyle = th.grid;
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = -off; x < W + g; x += g) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
@@ -883,9 +1191,9 @@ function drawBricks() {
     ctx.fill();
 
     ctx.globalAlpha = 1;
-    ctx.strokeStyle = b.breakable ? b.color : '#4b5875';
+    ctx.strokeStyle = b.breakable ? b.color : '#7b8cb5';
     ctx.lineWidth = b.flash > 0 ? 2.6 : 1.4;
-    ctx.globalAlpha = b.breakable ? 0.65 + (b.flash * 0.35) : 0.5;
+    ctx.globalAlpha = b.breakable ? 0.65 + (b.flash * 0.35) : 0.85;
     roundedRect(ctx, b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 5);
     ctx.stroke();
     ctx.globalAlpha = 1;
@@ -906,7 +1214,7 @@ function drawBricks() {
       ctx.fill();
     }
 
-    if (b.breakable && b.maxHp > 1) {
+    if (b.breakable && b.maxHp > 1 && b.kind === 'plain') {
       // hp pips
       const pips = Math.min(b.maxHp, 6);
       const pw = 4, ph = 3, gap = 2.5;
@@ -916,6 +1224,40 @@ function drawBricks() {
         ctx.fillStyle = i < filled ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.16)';
         ctx.fillRect(b.x + (b.w - totalW) / 2 + i * (pw + gap), b.y + b.h - 6, pw, ph);
       }
+    }
+
+    if (b.kind === 'regen') {
+      ctx.fillStyle = 'rgba(125,255,176,' + (0.55 + Math.abs(Math.sin(b.wobble * 3)) * 0.4) + ')';
+      ctx.beginPath();
+      ctx.arc(b.x + b.w - 9, b.y + 9, 3, 0, TAU);
+      ctx.fill();
+    } else if (b.kind === 'bomb') {
+      ctx.fillStyle = 'rgba(255,90,90,0.95)';
+      ctx.beginPath();
+      ctx.arc(b.x + b.w / 2, b.y + b.h / 2, 4.5, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,90,90,0.55)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(b.x + b.w / 2, b.y + b.h / 2, 8.5, 0, TAU);
+      ctx.stroke();
+    } else if (b.kind === 'core') {
+      ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(b.x + b.w / 2, b.y + b.h / 2 - 8);
+      ctx.lineTo(b.x + b.w / 2 + 7, b.y + b.h / 2);
+      ctx.lineTo(b.x + b.w / 2, b.y + b.h / 2 + 8);
+      ctx.lineTo(b.x + b.w / 2 - 7, b.y + b.h / 2);
+      ctx.closePath();
+      ctx.stroke();
+    } else if (b.kind === 'shield') {
+      ctx.strokeStyle = 'rgba(210,228,255,0.8)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(b.x + b.w / 2, b.y + 5);
+      ctx.lineTo(b.x + b.w / 2, b.y + b.h - 5);
+      ctx.stroke();
     }
 
     if (b.boss) {
@@ -945,7 +1287,7 @@ function drawPaddle() {
   ctx.fill();
   ctx.globalAlpha = 1;
 
-  if (G.upg && G.upg.shield > 0 && !G.shieldUsed) {
+  if (G.upg && G.shieldLeft > 0) {
     ctx.strokeStyle = 'rgba(139,92,246,' + (0.5 + Math.sin(G.time * 5) * 0.22) + ')';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -998,6 +1340,20 @@ function drawBolts() {
   ctx.globalAlpha = 1;
 }
 
+function drawShards() {
+  for (const s of G.shards) {
+    const a = clamp(s.life / s.max, 0, 1);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = s.color;
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(s.rot);
+    ctx.fillRect(-s.w / 2, -s.h / 2, s.w, s.h);
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function drawParticles() {
   for (const p of G.particles) {
     const a = clamp(p.life / p.max, 0, 1);
@@ -1010,7 +1366,7 @@ function drawParticles() {
 
 function drawFloaters() {
   ctx.textAlign = 'center';
-  ctx.font = '700 16px ui-monospace, Menlo, monospace';
+  ctx.font = '700 16px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   for (const f of G.floaters) {
     const a = clamp(f.life / f.max, 0, 1);
     ctx.globalAlpha = a;
@@ -1022,26 +1378,26 @@ function drawFloaters() {
 
 function drawHud() {
   ctx.textAlign = 'left';
-  ctx.font = '700 13px ui-monospace, Menlo, monospace';
+  ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(160,180,210,0.85)';
-  ctx.fillText('SCORE', 20, 30);
-  ctx.font = '700 26px ui-monospace, Menlo, monospace';
+  ctx.fillText(t('score'), 20, 30);
+  ctx.font = '700 26px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#eafcff';
   ctx.fillText(String(G.score).padStart(5, '0'), 20, 54);
 
   ctx.textAlign = 'right';
-  ctx.font = '700 13px ui-monospace, Menlo, monospace';
+  ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(160,180,210,0.85)';
-  ctx.fillText('BEST', W - 20, 30);
-  ctx.font = '700 26px ui-monospace, Menlo, monospace';
+  ctx.fillText(t('best'), W - 20, 30);
+  ctx.font = '700 26px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#54f2ff';
   ctx.fillText(String(Math.max(G.best, G.score)).padStart(5, '0'), W - 20, 54);
 
   ctx.textAlign = 'center';
-  ctx.font = '700 13px ui-monospace, Menlo, monospace';
+  ctx.font = '700 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(160,180,210,0.85)';
-  ctx.fillText('FLOOR', W / 2, 30);
-  ctx.font = '700 26px ui-monospace, Menlo, monospace';
+  ctx.fillText(t('floor'), W / 2, 30);
+  ctx.font = '700 26px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#ff4fd8';
   ctx.fillText(G.endless ? String(G.level) : G.level + '/' + FINAL_FLOOR, W / 2, 54);
 
@@ -1054,12 +1410,17 @@ function drawHud() {
     ctx.fill();
   }
 
+  for (let i = 0; i < (G.shieldLeft || 0); i++) {
+    ctx.fillStyle = 'rgba(139,92,246,0.9)';
+    ctx.fillRect(20 + i * 13, 86, 9, 9);
+  }
+
   // ---- light selector (bottom-left, below the paddle's travel) ----
   G.toneRects = [];
   ctx.textAlign = 'left';
-  ctx.font = '700 10px ui-monospace, Menlo, monospace';
+  ctx.font = '700 10px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(150,170,200,0.72)';
-  ctx.fillText('LIGHT  Q / E', 20, H - 30);
+  ctx.fillText(t('light') + '  Q / E', 20, H - 30);
   for (let i = 0; i < 3; i++) {
     const bx = 20 + i * 46, by = H - 24, bw = 40, bh = 18;
     G.toneRects.push({ x: bx, y: by, w: bw, h: bh, tone: i });
@@ -1093,24 +1454,24 @@ function drawHud() {
   ctx.fill();
   ctx.globalAlpha = 1;
   ctx.textAlign = 'center';
-  ctx.font = '700 10px ui-monospace, Menlo, monospace';
+  ctx.font = '700 10px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = full ? '#ffd166' : 'rgba(150,170,200,0.75)';
-  ctx.fillText(full ? 'OVERDRIVE READY — SHIFT' : 'OVERDRIVE', W / 2, my - 6);
+  ctx.fillText(full ? t('odReady') : t('overdrive'), W / 2, my - 6);
 
   // combo
   if (G.combo > 1) {
     ctx.textAlign = 'right';
-    ctx.font = '700 20px ui-monospace, Menlo, monospace';
+    ctx.font = '700 20px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = '#ffd166';
     const a = clamp(G.comboTimer / 2.4, 0.35, 1);
     ctx.globalAlpha = a;
-    ctx.fillText('COMBO x' + G.combo, W - 20, H - 20);
+    ctx.fillText(t('combo') + ' x' + G.combo, W - 20, H - 20);
     ctx.globalAlpha = 1;
   }
 }
 
 function drawMenu() {
-  ctx.fillStyle = 'rgba(5,6,13,0.72)';
+  ctx.fillStyle = 'rgba(5,6,13,0.55)';
   ctx.fillRect(0, 0, W, H);
 
   ctx.textAlign = 'center';
@@ -1118,7 +1479,7 @@ function drawMenu() {
 
   ctx.save();
   ctx.translate(W / 2, 190 + bob);
-  ctx.font = '900 82px ui-monospace, Menlo, monospace';
+  ctx.font = '900 82px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#54f2ff';
   ctx.globalAlpha = 0.16;
   ctx.fillText('PRISM BREAK', 3, 4);
@@ -1131,19 +1492,19 @@ function drawMenu() {
   ctx.fillText('PRISM BREAK', 0, 0);
   ctx.restore();
 
-  ctx.font = '600 17px ui-monospace, Menlo, monospace';
+  ctx.font = '600 17px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(200,215,235,0.82)';
-  ctx.fillText('match your light to the brick — same tone hits twice as hard', W / 2, 258);
+  ctx.fillText(t('subtitle'), W / 2, 258);
 
   // mini legend
   const items = [
-    ['MOVE', 'mouse / arrows'],
-    ['LAUNCH', 'click / space'],
-    ['LIGHT', 'Q / E — match the brick tone'],
-    ['OVERDRIVE', 'SHIFT when the meter fills'],
-    ['GOAL', FINAL_FLOOR + ' floors'],
+    [t('move'), t('moveVal')],
+    [t('launch'), t('launchVal')],
+    [t('lightK'), t('lightVal')],
+    [t('odK'), t('odVal')],
+    [t('goal'), t('floorsVal', FINAL_FLOOR)],
   ];
-  ctx.font = '600 14px ui-monospace, Menlo, monospace';
+  ctx.font = '600 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   let y = 330;
   for (const [k, v] of items) {
     ctx.textAlign = 'right';
@@ -1158,16 +1519,28 @@ function drawMenu() {
   const pulse = 0.55 + Math.sin(G.time * 4) * 0.35;
   ctx.textAlign = 'center';
   ctx.globalAlpha = pulse;
-  ctx.font = '800 22px ui-monospace, Menlo, monospace';
+  ctx.font = '800 22px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#ffd166';
-  ctx.fillText('CLICK TO START', W / 2, 500);
+  ctx.fillText(t('start'), W / 2, 500);
   ctx.globalAlpha = 1;
 
   if (G.best > 0) {
-    ctx.font = '600 14px ui-monospace, Menlo, monospace';
+    ctx.font = '600 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(160,180,210,0.7)';
-    ctx.fillText('BEST ' + G.best, W / 2, 542);
+    ctx.fillText(t('bestLine', G.best, G.bestFloor || 0), W / 2, 542);
   }
+
+  // language toggle
+  const lbw = 104, lbh = 28, lbx = W / 2 - lbw / 2, lby = 566;
+  G.langRect = { x: lbx, y: lby, w: lbw, h: lbh };
+  ctx.strokeStyle = 'rgba(140,160,190,0.45)';
+  ctx.lineWidth = 1.2;
+  roundedRect(ctx, lbx, lby, lbw, lbh, 9);
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.font = '700 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.fillStyle = 'rgba(190,205,225,0.9)';
+  ctx.fillText(t('langBtn'), W / 2, lby + 19);
 }
 
 function drawCardSelect() {
@@ -1175,12 +1548,12 @@ function drawCardSelect() {
   ctx.fillRect(0, 0, W, H);
 
   ctx.textAlign = 'center';
-  ctx.font = '800 16px ui-monospace, Menlo, monospace';
+  ctx.font = '800 16px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#54f2ff';
-  ctx.fillText('FLOOR ' + G.level + ' CLEARED', W / 2, 104);
-  ctx.font = '800 30px ui-monospace, Menlo, monospace';
+  ctx.fillText(t('cleared', G.level), W / 2, 104);
+  ctx.font = '800 30px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#eafcff';
-  ctx.fillText('CHOOSE ONE', W / 2, 142);
+  ctx.fillText(t('chooseOne'), W / 2, 142);
 
   const cwv = 250, chv = 300, gap = 26;
   const totalW = G.cardChoices.length * cwv + (G.cardChoices.length - 1) * gap;
@@ -1229,30 +1602,34 @@ function drawCardSelect() {
 
     // tag
     ctx.textAlign = 'center';
-    ctx.font = '700 11px ui-monospace, Menlo, monospace';
+    ctx.font = '700 11px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = look[0];
-    ctx.fillText(card.tag, x + cwv / 2, y0 + 128);
+    ctx.fillText(cardTagLabel(card.tag), x + cwv / 2, y0 + 128);
 
     // name
-    ctx.font = '900 27px ui-monospace, Menlo, monospace';
+    ctx.font = '900 27px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = '#f0f7ff';
-    ctx.fillText(card.name, x + cwv / 2, y0 + 168);
+    ctx.fillText(LANG === 'zh' && card.zh ? card.zh : card.name, x + cwv / 2, y0 + 168);
 
     // desc
-    ctx.font = '600 14px ui-monospace, Menlo, monospace';
+    ctx.font = '600 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = 'rgba(190,205,225,0.88)';
-    wrapText(card.desc(G.upg.counts[card.id] || 0), x + cwv / 2, y0 + 208, cwv - 44, 21);
+    const usedLv = G.upg.counts[card.id] || 0;
+    const descText = LANG === 'zh' && card.descZh
+      ? card.descZh(usedLv)
+      : card.desc(usedLv);
+    wrapText(descText, x + cwv / 2, y0 + 208, cwv - 44, 21);
 
     // stack indicator
     const used = G.upg.counts[card.id] || 0;
     if (used > 0) {
-      ctx.font = '700 12px ui-monospace, Menlo, monospace';
+      ctx.font = '700 12px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
       ctx.fillStyle = 'rgba(255,209,102,0.9)';
-      ctx.fillText('LV ' + used + ' → ' + (used + 1), x + cwv / 2, y0 + chv - 52);
+      ctx.fillText(t('lv', used, used + 1), x + cwv / 2, y0 + chv - 52);
     }
 
     // key hint
-    ctx.font = '800 13px ui-monospace, Menlo, monospace';
+    ctx.font = '800 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
     ctx.fillStyle = hovered ? look[0] : 'rgba(140,158,190,0.6)';
     ctx.fillText('[ ' + (i + 1) + ' ]', x + cwv / 2, y0 + chv - 24);
 
@@ -1260,9 +1637,9 @@ function drawCardSelect() {
   });
 
   ctx.textAlign = 'center';
-  ctx.font = '600 13px ui-monospace, Menlo, monospace';
+  ctx.font = '600 13px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(150,170,200,0.6)';
-  ctx.fillText('click a card, or press 1 / 2 / 3', W / 2, H - 52);
+  ctx.fillText(t('pickHint'), W / 2, H - 52);
 }
 
 function drawCardIcon(id, look) {
@@ -1328,6 +1705,77 @@ function drawCardIcon(id, look) {
       ctx.bezierCurveTo(18, -24, 30, -2, 0, 18);
       ctx.stroke();
       break;
+    case 'seek':
+      ctx.beginPath();
+      ctx.moveTo(-22, 16);
+      ctx.quadraticCurveTo(-4, -22, 20, -6);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(12, -14); ctx.lineTo(24, -4); ctx.lineTo(10, 2);
+      ctx.stroke();
+      break;
+    case 'fork':
+      ctx.beginPath();
+      ctx.moveTo(0, 22); ctx.lineTo(0, 2);
+      ctx.moveTo(0, 2); ctx.lineTo(-18, -20);
+      ctx.moveTo(0, 2); ctx.lineTo(18, -20);
+      ctx.stroke();
+      break;
+    case 'amp':
+      ctx.beginPath();
+      ctx.moveTo(-20, 18); ctx.lineTo(4, 18); ctx.lineTo(-4, -18); ctx.lineTo(-26, -18);
+      ctx.closePath(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(10, 6); ctx.lineTo(24, -18);
+      ctx.stroke();
+      break;
+    case 'rapid':
+      ctx.beginPath();
+      ctx.moveTo(6, -24); ctx.lineTo(-14, 4); ctx.lineTo(0, 4); ctx.lineTo(-6, 24);
+      ctx.lineTo(16, -6); ctx.lineTo(2, -6); ctx.closePath();
+      ctx.stroke();
+      break;
+    case 'lance':
+      for (const dx of [-16, 0, 16]) {
+        ctx.beginPath();
+        ctx.moveTo(dx, 18); ctx.lineTo(dx, -18);
+        ctx.stroke();
+      }
+      break;
+    case 'aegis':
+      for (const off of [-7, 7]) {
+        ctx.beginPath();
+        ctx.moveTo(off, -22); ctx.lineTo(off + 15, -12); ctx.lineTo(off + 15, 6);
+        ctx.quadraticCurveTo(off + 7.5, 24, off, 24);
+        ctx.quadraticCurveTo(off, 24, off, 24);
+        ctx.lineTo(off, -22);
+        ctx.stroke();
+      }
+      break;
+    case 'glass':
+      ctx.beginPath();
+      ctx.moveTo(-20, -18); ctx.lineTo(-4, -2); ctx.lineTo(-12, 6); ctx.lineTo(6, 22);
+      ctx.moveTo(-4, -2); ctx.lineTo(14, -10);
+      ctx.moveTo(-12, 6); ctx.lineTo(4, 10);
+      ctx.stroke();
+      break;
+    case 'berserk':
+      ctx.beginPath();
+      ctx.moveTo(0, -24);
+      ctx.quadraticCurveTo(14, -6, 8, 6);
+      ctx.quadraticCurveTo(18, 4, 16, 16);
+      ctx.quadraticCurveTo(10, 24, 0, 24);
+      ctx.quadraticCurveTo(-10, 24, -16, 16);
+      ctx.quadraticCurveTo(-18, 4, -8, 6);
+      ctx.quadraticCurveTo(-14, -6, 0, -24);
+      ctx.stroke();
+      break;
+    case 'volatile':
+      ctx.beginPath(); ctx.arc(0, 6, 17, 0, TAU); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(8, -10); ctx.quadraticCurveTo(16, -22, 6, -24);
+      ctx.stroke();
+      break;
     default:
       ctx.beginPath(); ctx.arc(0, 0, 20, 0, TAU); ctx.stroke();
   }
@@ -1355,32 +1803,45 @@ function drawGameOver() {
   ctx.fillRect(0, 0, W, H);
 
   ctx.textAlign = 'center';
-  ctx.font = '900 54px ui-monospace, Menlo, monospace';
+  ctx.font = '900 54px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#ff4f6d';
-  ctx.fillText('RUN OVER', W / 2, 232);
+  ctx.fillText(t('runOver'), W / 2, 232);
 
-  ctx.font = '700 15px ui-monospace, Menlo, monospace';
+  ctx.font = '700 15px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(170,188,212,0.85)';
-  ctx.fillText('SCORE', W / 2, 292);
-  ctx.font = '900 48px ui-monospace, Menlo, monospace';
+  ctx.fillText(t('score'), W / 2, 292);
+  ctx.font = '900 48px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#eafcff';
   ctx.fillText(String(G.score), W / 2, 340);
 
-  ctx.font = '700 16px ui-monospace, Menlo, monospace';
+  ctx.font = '700 16px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(170,188,212,0.85)';
-  ctx.fillText('FLOOR ' + G.level + '   ·   BEST ' + G.best, W / 2, 384);
+  ctx.fillText(t('floorWord', G.level) + '   ·   ' + t('best') + ' ' + G.best, W / 2, 384);
 
   if (G.score >= G.best && G.score > 0) {
     ctx.fillStyle = '#ffd166';
-    ctx.font = '800 20px ui-monospace, Menlo, monospace';
-    ctx.fillText('NEW BEST!', W / 2, 420);
+    ctx.font = '800 20px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillText(t('newBest'), W / 2, 414);
+  }
+
+  // run loadout
+  const taken = CARDS.filter((c) => (G.upg.counts[c.id] || 0) > 0);
+  if (taken.length) {
+    ctx.font = '700 12px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = 'rgba(140,160,190,0.8)';
+    ctx.fillText(t('loadout'), W / 2, 446);
+    ctx.font = '700 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    const parts = taken.map((c) => c.name + ' ' + 'I'.repeat(G.upg.counts[c.id]));
+    const line = parts.join('   ·   ');
+    ctx.fillStyle = TONES[G.tone].hex;
+    ctx.fillText(line, W / 2, 468);
   }
 
   const pulse = 0.55 + Math.sin(G.time * 4) * 0.35;
   ctx.globalAlpha = pulse;
-  ctx.font = '800 20px ui-monospace, Menlo, monospace';
+  ctx.font = '800 20px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#54f2ff';
-  ctx.fillText('CLICK TO RUN AGAIN', W / 2, 492);
+  ctx.fillText(t('again'), W / 2, 492);
   ctx.globalAlpha = 1;
 }
 
@@ -1395,28 +1856,28 @@ function drawVictory() {
   g.addColorStop(0, TONES[0].hex);
   g.addColorStop(0.5, TONES[1].hex);
   g.addColorStop(1, TONES[2].hex);
-  ctx.font = '900 54px ui-monospace, Menlo, monospace';
+  ctx.font = '900 54px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = g;
-  ctx.fillText('CORE SHATTERED', 0, 0);
+  ctx.fillText(t('victory'), 0, 0);
   ctx.restore();
 
-  ctx.font = '700 15px ui-monospace, Menlo, monospace';
+  ctx.font = '700 15px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(180,198,222,0.9)';
-  ctx.fillText('all ' + FINAL_FLOOR + ' floors cleared', W / 2, 256);
+  ctx.fillText(t('allCleared', FINAL_FLOOR), W / 2, 256);
 
-  ctx.font = '900 44px ui-monospace, Menlo, monospace';
+  ctx.font = '900 44px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#eafcff';
   ctx.fillText(String(G.score), W / 2, 330);
 
-  ctx.font = '700 15px ui-monospace, Menlo, monospace';
+  ctx.font = '700 15px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(170,188,212,0.85)';
-  ctx.fillText('BEST ' + G.best + '   ·   ' + Math.round(G.time) + 's', W / 2, 372);
+  ctx.fillText(t('best') + ' ' + G.best + '   ·   ' + Math.round(G.time) + (LANG === 'zh' ? ' 秒' : 's'), W / 2, 372);
 
   const pulse = 0.55 + Math.sin(G.time * 4) * 0.35;
   ctx.globalAlpha = pulse;
-  ctx.font = '800 20px ui-monospace, Menlo, monospace';
+  ctx.font = '800 20px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#54f2ff';
-  ctx.fillText('CLICK TO ENTER THE ENDLESS', W / 2, 470);
+  ctx.fillText(t('endless'), W / 2, 470);
   ctx.globalAlpha = 1;
 }
 
@@ -1424,12 +1885,27 @@ function drawPaused() {
   ctx.fillStyle = 'rgba(4,5,12,0.72)';
   ctx.fillRect(0, 0, W, H);
   ctx.textAlign = 'center';
-  ctx.font = '900 44px ui-monospace, Menlo, monospace';
+  ctx.font = '900 44px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = '#54f2ff';
-  ctx.fillText('PAUSED', W / 2, H / 2);
-  ctx.font = '600 14px ui-monospace, Menlo, monospace';
+  ctx.fillText(t('paused'), W / 2, H / 2);
+  ctx.font = '600 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
   ctx.fillStyle = 'rgba(170,188,212,0.8)';
-  ctx.fillText('press P to resume', W / 2, H / 2 + 34);
+  ctx.fillText(t('resume'), W / 2, H / 2 + 34);
+}
+
+function drawRotateHint() {
+  ctx.fillStyle = 'rgba(4,5,12,0.86)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.font = '800 34px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.fillStyle = '#54f2ff';
+  ctx.fillText(LANG === 'zh' ? '请把手机横过来' : 'ROTATE YOUR DEVICE', W / 2, H / 2 - 20);
+  ctx.font = '600 18px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.fillStyle = 'rgba(180,198,222,0.85)';
+  ctx.fillText(LANG === 'zh' ? '横屏体验更好（仍可竖屏继续）' : 'landscape plays better (portrait still works)', W / 2, H / 2 + 24);
+  ctx.font = '600 14px ui-monospace, Menlo, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+  ctx.fillStyle = 'rgba(150,170,200,0.7)';
+  ctx.fillText(LANG === 'zh' ? '点一下继续' : 'tap to continue', W / 2, H / 2 + 66);
 }
 
 function render() {
@@ -1439,12 +1915,15 @@ function render() {
   ctx.save();
   ctx.translate(sx, sy);
   drawBackground();
-  drawBricks();
-  drawBolts();
-  drawPaddle();
-  drawBalls();
-  drawParticles();
-  drawFloaters();
+  if (G.state !== 'menu') {
+    drawBricks();
+    drawBolts();
+    drawPaddle();
+    drawBalls();
+    drawParticles();
+    drawShards();
+    drawFloaters();
+  }
   ctx.restore();
 
   if (G.state !== 'menu') drawHud();
@@ -1459,6 +1938,8 @@ function render() {
     ctx.fillStyle = 'rgba(255,79,109,' + (G.flash * 0.22) + ')';
     ctx.fillRect(0, 0, W, H);
   }
+
+  if (G.portraitHint && G.state !== 'menu') drawRotateHint();
 }
 
 /* ----------------------------- loop ---------------------------- */
@@ -1488,6 +1969,8 @@ function resize() {
   canvas.height = Math.round(cssH * dpr);
   ctx.setTransform((cssW / W) * dpr, 0, 0, (cssH / H) * dpr, 0, 0);
   ctx.imageSmoothingEnabled = true;
+  const portrait = window.innerHeight > window.innerWidth * 1.15;
+  G.portraitHint = portrait && !G.portraitDismissed;
 }
 
 /* ---------------------------- events --------------------------- */
@@ -1495,12 +1978,31 @@ function resize() {
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 120));
 
-canvas.addEventListener('pointermove', (e) => { pointerMove(e.clientX, e.clientY); });
+let touchDrag = null;
+
+canvas.addEventListener('pointermove', (e) => {
+  if (e.pointerType === 'touch' && touchDrag) {
+    const r = canvas.getBoundingClientRect();
+    const dx = ((e.clientX - touchDrag.x) / Math.max(r.width, 1)) * W;
+    G.pointers.active = true;
+    G.pointers.x = touchDrag.target + dx;
+    G.paddle.targetX = G.pointers.x;
+    if (G.state === 'cardselect') pointerMove(e.clientX, e.clientY);
+    return;
+  }
+  pointerMove(e.clientX, e.clientY);
+});
 canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
+  if (e.pointerType === 'touch') {
+    const r = canvas.getBoundingClientRect();
+    touchDrag = { x: e.clientX, target: G.paddle.targetX, w: r.width };
+  }
   onPointerDown(e.clientX, e.clientY);
 });
-canvas.addEventListener('pointerleave', () => { G.pointers.active = false; });
+canvas.addEventListener('pointerup', (e) => { if (e.pointerType === 'touch') touchDrag = null; });
+canvas.addEventListener('pointercancel', () => { touchDrag = null; });
+canvas.addEventListener('pointerleave', () => { G.pointers.active = false; touchDrag = null; });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 window.addEventListener('keydown', (e) => {
@@ -1519,6 +2021,10 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
     if (G.state === 'playing') G.state = 'paused';
     else if (G.state === 'paused') G.state = 'playing';
+    return;
+  }
+  if (e.key === 'l' || e.key === 'L') {
+    setLang(LANG === 'zh' ? 'en' : 'zh');
     return;
   }
   if (e.key === 'm' || e.key === 'M') {
